@@ -18,6 +18,8 @@ class AdaptiveNavigationDestination {
     this.isSearch = false,
     this.badgeCount,
     this.addSpacerAfter = false,
+    this.useAssetsForIos = false,
+    this.labelFontSizeForIos = 12.0,
   });
 
   /// Icon to display (SF Symbol name for iOS, IconData for cross-platform)
@@ -42,6 +44,12 @@ class AdaptiveNavigationDestination {
   /// Useful for creating grouped tabs (e.g., left group and right group)
   /// Only applies to iOS 26+ native tab bar
   final bool addSpacerAfter;
+
+  /// Only iOS
+  final bool useAssetsForIos;
+
+  /// Only iOS
+  final double labelFontSizeForIos;
 }
 
 /// Tab bar minimize behavior for iOS 26+

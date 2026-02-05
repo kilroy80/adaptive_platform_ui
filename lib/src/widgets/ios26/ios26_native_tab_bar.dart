@@ -99,15 +99,20 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         return '';
       }).toList();
 
+      final useAssetsForIos = widget.destinations.map((e) => e.useAssetsForIos).toList();
       final searchFlags = widget.destinations.map((e) => e.isSearch).toList();
       final badgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
       final spacerFlags = widget.destinations
           .map((e) => e.addSpacerAfter)
           .toList();
+      final labelFontSize = widget.destinations
+          .map((e) => e.labelFontSizeForIos).toList();
 
       final creationParams = <String, dynamic>{
         'labels': labels,
         'sfSymbols': symbols,
+        'useAssetsForIos': useAssetsForIos,
+        'labelFontSize': labelFontSize,
         'searchFlags': searchFlags,
         'badgeCounts': badgeCounts,
         'spacerFlags': spacerFlags,
@@ -248,6 +253,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
       if (icon is String) return icon;
       return '';
     }).toList();
+    final useAssetsForIos = widget.destinations.map((e) => e.useAssetsForIos).toList();
     final searchFlags = widget.destinations.map((e) => e.isSearch).toList();
     final badgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
 
@@ -256,6 +262,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
       await ch.invokeMethod('setItems', {
         'labels': labels,
         'sfSymbols': symbols,
+        'useAssetsForIos': useAssetsForIos,
         'searchFlags': searchFlags,
         'badgeCounts': badgeCounts,
         'selectedIndex': widget.selectedIndex,

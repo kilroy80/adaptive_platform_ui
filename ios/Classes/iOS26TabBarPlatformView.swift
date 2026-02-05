@@ -20,6 +20,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
         var labels: [String] = []
         var symbols: [String] = []
+        var useAssetsForIos: [Bool] = []
         var searchFlags: [Bool] = []
         var badgeCounts: [Int?] = []
         var spacerFlags: [Bool] = []
@@ -35,6 +36,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             NSLog("📦 TabBar init dict keys: \(dict.keys)")
             labels = (dict["labels"] as? [String]) ?? []
             symbols = (dict["sfSymbols"] as? [String]) ?? []
+            useAssetsForIos = (dict["useAssetsForIos"] as? [Bool]) ?? []
             searchFlags = (dict["searchFlags"] as? [Bool]) ?? []
             spacerFlags = (dict["spacerFlags"] as? [Bool]) ?? []
             if let badgeData = dict["badgeCounts"] as? [NSNumber?] {
@@ -147,6 +149,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                         item = UITabBarItem(tabBarSystemItem: .search, tag: i)
                         if let title = title {
                             item.title = title
+                            item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
                         }
 
                     } else {
@@ -164,16 +167,31 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                             // Unselected: Only apply custom color if unselectedTint is provided
                             if let unselTint = unselectedTint {
                                 // Create colored image for unselected state
-                                if let originalImage = UIImage(systemName: symbols[i]) {
-                                    image = originalImage.withTintColor(unselTint, renderingMode: .alwaysOriginal)
+                                
+                                if (useAssetsForIos[i] == true) {
+                                    if let originalImage = UIImage(named: symbols[i]) {
+                                        image = originalImage.withTintColor(unselTint, renderingMode: .alwaysOriginal)
+                                    }
+                                } else {
+                                    if let originalImage = UIImage(systemName: symbols[i]) {
+                                        image = originalImage.withTintColor(unselTint, renderingMode: .alwaysOriginal)
+                                    }
                                 }
                             } else {
                                 // No custom color - use template mode to respect theme
-                                image = UIImage(systemName: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                                if (useAssetsForIos[i] == true) {
+                                    image = UIImage(named: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                                } else {
+                                    image = UIImage(systemName: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                                }
                             }
-
+                            
                             // Selected: Use template rendering so tintColor applies
-                            selectedImage = UIImage(systemName: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                            if (useAssetsForIos[i] == true) {
+                                selectedImage = UIImage(named: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                            } else {
+                                selectedImage = UIImage(systemName: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                            }
                         } else {
                             // iOS <26: Use default behavior
                             image = UIImage(systemName: symbols[i])
@@ -184,6 +202,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                     // Create item with title
                     item = UITabBarItem(title: title ?? "Tab \(i+1)", image: image, selectedImage: selectedImage)
                     item.tag = i
+                    item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
                 }
 
                 // Set badge value if provided
@@ -259,6 +278,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         case "setItems":
             guard let args = call.arguments as? [String: Any],
                   let labels = args["labels"] as? [String],
+                  let useAssetsForIos = args["useAssetsForIos"] as? [Bool],
                   let symbols = args["sfSymbols"] as? [String] else {
                 result(FlutterError(code: "bad_args", message: "Missing items", details: nil))
                 return
@@ -294,6 +314,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                             item = UITabBarItem(tabBarSystemItem: .search, tag: i)
                             if let title = title {
                                 item.title = title
+                                item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
                             }
 
                         } else {
@@ -310,22 +331,37 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                             if #available(iOS 26.0, *) {
                                 // Get current unselected color from tab bar
                                 let unselTint = self.tabBar?.unselectedItemTintColor
-
+                                
                                 // Unselected: Only apply custom color if unselectedTint is set
                                 if let unselTint = unselTint {
-                                    if let originalImage = UIImage(systemName: symbols[i]) {
-                                        image = originalImage.withTintColor(unselTint, renderingMode: .alwaysOriginal)
+                                    
+                                    if (useAssetsForIos[i] == true) {
+                                        if let originalImage = UIImage(named: symbols[i]) {
+                                            image = originalImage.withTintColor(unselTint, renderingMode: .alwaysOriginal)
+                                        }
+                                    } else {
+                                        if let originalImage = UIImage(systemName: symbols[i]) {
+                                            image = originalImage.withTintColor(unselTint, renderingMode: .alwaysOriginal)
+                                        }
                                     }
                                 } else {
                                     // No custom color - use template mode to respect theme
-                                    image = UIImage(systemName: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                                    if (useAssetsForIos[i] == true) {
+                                        image = UIImage(named: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                                    } else {
+                                        image = UIImage(systemName: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                                    }
                                 }
-
+                                
                                 // Selected: Use template rendering so tintColor applies
-                                selectedImage = UIImage(systemName: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                                if (useAssetsForIos[i] == true) {
+                                    selectedImage = UIImage(named: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                                } else {
+                                    selectedImage = UIImage(systemName: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                                }
                             } else {
                                 // iOS <26: Use default behavior
-                                image = UIImage(systemName: symbols[i])
+                                image = UIImage(named: symbols[i])
                                 selectedImage = image
                             }
                         }
@@ -333,6 +369,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                         // Create item with title
                         item = UITabBarItem(title: title ?? "Tab \(i+1)", image: image, selectedImage: selectedImage)
                         item.tag = i
+                        item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
                     }
 
                     // Set badge value if provided
@@ -474,6 +511,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 if #available(iOS 26.0, *) {
                     item = UITabBarItem(tabBarSystemItem: .search, tag: i)
                     item.title = title
+                    item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
                 } else {
                     let searchImage = UIImage(systemName: "magnifyingglass")
                     item = UITabBarItem(title: title, image: searchImage, selectedImage: searchImage)
@@ -503,6 +541,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
                 item = UITabBarItem(title: title, image: image, selectedImage: selectedImage)
                 item.tag = i
+                item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
             }
 
             // Set badge value if provided
