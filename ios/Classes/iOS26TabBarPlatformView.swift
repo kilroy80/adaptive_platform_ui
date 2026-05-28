@@ -188,6 +188,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                         item = UITabBarItem(tabBarSystemItem: .search, tag: i)
                         if let title = title {
                             item.title = title
+                            item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
                         }
 
                     } else {
@@ -201,6 +202,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
                     item = UITabBarItem(title: title ?? "Tab \(i+1)", image: nil, selectedImage: nil)
                     item.tag = i
+                    item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
 
                     if !self.configureRuntimeImages(for: item, index: i) {
                         if i < assetIcons.count && !assetIcons[i].isEmpty {
@@ -406,6 +408,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                             item = UITabBarItem(tabBarSystemItem: .search, tag: i)
                             if let title = title {
                                 item.title = title
+                                item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
                             }
 
                         } else {
@@ -419,6 +422,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
                         item = UITabBarItem(title: title ?? "Tab \(i+1)", image: nil, selectedImage: nil)
                         item.tag = i
+                        item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
 
                         if !self.configureRuntimeImages(for: item, index: i) {
                             if i < assetIcons.count && !assetIcons[i].isEmpty {
@@ -642,6 +646,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 if #available(iOS 26.0, *) {
                     item = UITabBarItem(tabBarSystemItem: .search, tag: i)
                     item.title = title
+                    item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
                 } else {
                     let searchImage = UIImage(systemName: "magnifyingglass")
                     item = UITabBarItem(title: title, image: searchImage, selectedImage: searchImage)
@@ -652,6 +657,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
                 item = UITabBarItem(title: title, image: nil, selectedImage: nil)
                 item.tag = i
+                item.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12, weight: .medium)], for: .normal)
 
                 if !configureRuntimeImages(for: item, index: i) {
                     if i < currentAssetIcons.count && !currentAssetIcons[i].isEmpty {
