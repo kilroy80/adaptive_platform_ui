@@ -20,6 +20,7 @@ class IOS26NativeToolbar extends StatefulWidget {
     this.tintColor,
     this.height = 44.0,
     this.showNativeView = true,
+    this.showsGradient = true,
   });
 
   final String? title;
@@ -43,6 +44,11 @@ class IOS26NativeToolbar extends StatefulWidget {
   final double height;
   final bool showNativeView;
 
+  /// Whether the native view draws the readability gradient behind the bar.
+  /// The fixed toolbar host turns it off and draws one gradient of its own
+  /// behind all page layers.
+  final bool showsGradient;
+
   @override
   State<IOS26NativeToolbar> createState() => _IOS26NativeToolbarState();
 }
@@ -61,8 +67,9 @@ class _IOS26NativeToolbarState extends State<IOS26NativeToolbar> {
     Color resolvedColor = color;
     if (color is CupertinoDynamicColor) {
       final brightness = MediaQuery.platformBrightnessOf(context);
-      resolvedColor =
-          brightness == Brightness.dark ? color.darkColor : color.color;
+      resolvedColor = brightness == Brightness.dark
+          ? color.darkColor
+          : color.color;
     }
 
     return ((resolvedColor.a * 255.0).round() & 0xff) << 24 |
@@ -106,9 +113,11 @@ class _IOS26NativeToolbarState extends State<IOS26NativeToolbar> {
       }
     }
 
-    // Sync actions (per-action tint, prominent, etc.)
+    // Sync actions (per-action tint, prominent, etc.). A null list and an
+    // empty one both mean "no actions", so going from null to a real list
+    // (or back) has to reach the native bar too (#84).
     final actions = widget.actions;
-    if (_lastActions != null && !_actionsEqual(_lastActions!, actions)) {
+    if (!_actionsEqual(_lastActions, actions)) {
       try {
         final params = <String, dynamic>{
           if (actions != null && actions.isNotEmpty)
@@ -122,8 +131,9 @@ class _IOS26NativeToolbarState extends State<IOS26NativeToolbar> {
     }
 
     // Sync tint color
-    final tint =
-        widget.tintColor != null ? _colorToARGB(widget.tintColor!) : null;
+    final tint = widget.tintColor != null
+        ? _colorToARGB(widget.tintColor!)
+        : null;
     if (_lastTint != tint) {
       try {
         await ch.invokeMethod('setStyle', {'tint': tint});
@@ -135,9 +145,12 @@ class _IOS26NativeToolbarState extends State<IOS26NativeToolbar> {
   }
 
   bool _actionsEqual(
-      List<AdaptiveAppBarAction>? a, List<AdaptiveAppBarAction>? b) {
+    List<AdaptiveAppBarAction>? a,
+    List<AdaptiveAppBarAction>? b,
+  ) {
     if (identical(a, b)) return true;
-    if (a == null || b == null) return false;
+    a ??= const <AdaptiveAppBarAction>[];
+    b ??= const <AdaptiveAppBarAction>[];
     if (a.length != b.length) return false;
     for (int i = 0; i < a.length; i++) {
       if (a[i] != b[i]) return false;
@@ -162,6 +175,7 @@ class _IOS26NativeToolbarState extends State<IOS26NativeToolbar> {
       if (widget.actions != null && widget.actions!.isNotEmpty)
         'actions': widget.actions!.map((a) => a.toNativeMap()).toList(),
       'isDark': _isDark,
+      if (!widget.showsGradient) 'showsGradient': false,
       if (widget.tintColor != null) 'tint': _colorToARGB(widget.tintColor!),
     };
 
@@ -205,16 +219,31 @@ class _IOS26NativeToolbarState extends State<IOS26NativeToolbar> {
     _channel = MethodChannel('adaptive_platform_ui/ios26_toolbar_$id');
     _channel!.setMethodCallHandler(_handleMethodCall);
     _lastIsDark = _isDark;
-    _lastTint =
-        widget.tintColor != null ? _colorToARGB(widget.tintColor!) : null;
-    _lastActions =
-        widget.actions != null ? List.of(widget.actions!) : null;
+    _lastTint = widget.tintColor != null
+        ? _colorToARGB(widget.tintColor!)
+        : null;
+    _lastActions = widget.actions != null ? List.of(widget.actions!) : null;
   }
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'onLeadingTapped':
         widget.onLeadingTap?.call();
+        break;
+      case 'onMenuItemTapped':
+        if (call.arguments is Map) {
+          final args = call.arguments as Map;
+          final actionIndex = args['action'] as int?;
+          final itemIndex = args['item'] as int?;
+          final actions = widget.actions;
+          if (actions != null &&
+              actionIndex != null &&
+              itemIndex != null &&
+              actionIndex >= 0 &&
+              actionIndex < actions.length) {
+            actions[actionIndex].selectMenuItem(itemIndex);
+          }
+        }
         break;
       case 'onActionTapped':
         if (call.arguments is Map) {
@@ -227,19 +256,22 @@ class _IOS26NativeToolbarState extends State<IOS26NativeToolbar> {
 
   Widget _buildFallbackToolbar() {
     return CupertinoNavigationBar(
-      middle: widget.titleWidget ??
+      middle:
+          widget.titleWidget ??
           (widget.title != null ? Text(widget.title!) : null),
       leading: widget.leading,
       trailing: widget.actions != null && widget.actions!.isNotEmpty
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: widget.actions!.map((action) {
-                return CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: action.onPressed,
-                  child: action.icon != null
-                      ? Icon(action.icon)
-                      : Text(action.title ?? ''),
+                return Builder(
+                  builder: (context) => CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => action.press(context),
+                    child: action.icon != null
+                        ? Icon(action.icon)
+                        : Text(action.title ?? ''),
+                  ),
                 );
               }).toList(),
             )
