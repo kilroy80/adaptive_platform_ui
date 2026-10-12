@@ -192,7 +192,9 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
 
   @override
   Widget build(BuildContext context) {
-    if (!kIsWeb && Platform.isIOS) {
+    if (!kIsWeb &&
+        Platform.isIOS &&
+        !widget.destinations.any((d) => d.requiresFlutterIcon)) {
       final labels = widget.destinations.map((e) => e.label).toList();
       final symbols = _mapSymbols();
       final selectedSymbols = _mapSelectedSymbols();
@@ -255,44 +257,45 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
       return SizedBox(height: h, child: platformView);
     }
 
-    // Fallback for non-iOS
-    return SizedBox(
-      height: widget.height ?? 50,
-      child: Container(
-        color:
-            widget.backgroundColor ??
-            CupertinoColors.systemBackground.resolveFrom(context),
+    // Flutter resolves custom providers so caches and placeholders are honored.
+    if (!widget.showNativeView || widget.hidden) {
+      return SizedBox(height: widget.height ?? 50);
+    }
+    if (widget.destinations.length < 2) {
+      return SizedBox(
+        height: widget.height ?? 50,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(
-            widget.destinations.length,
-            (index) => CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: () => widget.onTap(index),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    CupertinoIcons.circle,
-                    color: index == widget.selectedIndex
-                        ? CupertinoColors.activeBlue
-                        : CupertinoColors.systemGrey,
-                  ),
-                  Text(
-                    widget.destinations[index].label,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: index == widget.selectedIndex
-                          ? CupertinoColors.activeBlue
-                          : CupertinoColors.systemGrey,
-                    ),
-                  ),
-                ],
+          children: [
+            for (var i = 0; i < widget.destinations.length; i++)
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: () => widget.onTap(i),
+                child: widget.destinations[i].buildIcon(
+                  selected: i == widget.selectedIndex,
+                ),
               ),
-            ),
-          ),
+          ],
         ),
-      ),
+      );
+    }
+    return CupertinoTabBar(
+      currentIndex: widget.selectedIndex,
+      onTap: widget.onTap,
+      height: widget.height ?? 50,
+      activeColor: widget.tint,
+      inactiveColor: widget.unselectedItemTint ?? CupertinoColors.inactiveGray,
+      backgroundColor: widget.backgroundColor,
+      items: [
+        for (final d in widget.destinations)
+          BottomNavigationBarItem(
+            icon: d.hasBadge ? d.wrapWithBadge(d.buildIcon()) : d.buildIcon(),
+            activeIcon: d.hasBadge
+                ? d.wrapWithBadge(d.buildIcon(selected: true))
+                : d.buildIcon(selected: true),
+            label: d.label,
+          ),
+      ],
     );
   }
 

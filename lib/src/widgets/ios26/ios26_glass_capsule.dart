@@ -21,6 +21,7 @@ class GlassCapsuleItem {
     this.tint,
     this.badge,
     this.fallback,
+    this.selectedFallback,
     this.menu,
   });
 
@@ -63,27 +64,25 @@ class GlassCapsuleItem {
     final image = imageOf(d.icon);
     final icon = d.icon;
     return GlassCapsuleItem(
-      symbol: symbolOf(icon) ?? (d.isSearch ? 'magnifyingglass' : null),
-      selectedSymbol: symbolOf(d.selectedIcon),
-      asset: image is AssetImage
+      symbol: d.requiresFlutterIcon
+          ? null
+          : symbolOf(icon) ?? (d.isSearch ? 'magnifyingglass' : null),
+      selectedSymbol: d.requiresFlutterIcon ? null : symbolOf(d.selectedIcon),
+      asset: d.requiresFlutterIcon
+          ? null
+          : image is AssetImage
           ? image.assetName
           : (icon is String && icon.contains('/') ? icon : null),
-      file: image is FileImage ? image.file.path : null,
-      network: image is NetworkImage ? image.url : null,
+      file: !d.requiresFlutterIcon && image is FileImage
+          ? image.file.path
+          : null,
+      network: !d.requiresFlutterIcon && image is NetworkImage
+          ? image.url
+          : null,
       label: d.label,
       badge: d.badgeCount,
-      fallback: icon is IconData
-          ? Icon(icon, size: 22)
-          : image != null
-          ? ClipOval(
-              child: Image(
-                image: image,
-                width: 26,
-                height: 26,
-                fit: BoxFit.cover,
-              ),
-            )
-          : null,
+      fallback: d.buildIcon(),
+      selectedFallback: d.buildIcon(selected: true),
     );
   }
 
@@ -105,6 +104,9 @@ class GlassCapsuleItem {
 
   /// Drawn where there is no UIKit (widget tests, other platforms).
   final Widget? fallback;
+
+  /// Flutter icon used when this tab is selected.
+  final Widget? selectedFallback;
 
   /// Whether the native capsule has something to draw for this item.
   bool get canShowNatively =>
@@ -292,14 +294,21 @@ class _IOS26GlassCapsuleState extends State<IOS26GlassCapsule> {
             padding: EdgeInsets.symmetric(vertical: widget.inset),
             child: Column(
               children: [
-                for (final item in widget.items)
+                for (var i = 0; i < widget.items.length; i++)
                   Expanded(
                     child: Center(
-                      child: item.canShowNatively
+                      child: widget.items[i].canShowNatively
                           ? null
                           : IconTheme.merge(
-                              data: IconThemeData(color: item.tint ?? label),
-                              child: item.fallback ?? const SizedBox.shrink(),
+                              data: IconThemeData(
+                                color: widget.items[i].tint ?? label,
+                              ),
+                              child:
+                                  (i == widget.selectedIndex
+                                      ? widget.items[i].selectedFallback ??
+                                            widget.items[i].fallback
+                                      : widget.items[i].fallback) ??
+                                  const SizedBox.shrink(),
                             ),
                     ),
                   ),
@@ -334,7 +343,10 @@ class _IOS26GlassCapsuleState extends State<IOS26GlassCapsule> {
                         color: i == widget.selectedIndex ? tint : label,
                       ),
                       child:
-                          widget.items[i].fallback ??
+                          (i == widget.selectedIndex
+                              ? widget.items[i].selectedFallback ??
+                                    widget.items[i].fallback
+                              : widget.items[i].fallback) ??
                           Text(
                             widget.items[i].title ??
                                 widget.items[i].symbol ??

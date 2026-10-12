@@ -8,6 +8,7 @@ import 'adaptive_app_bar.dart';
 import 'adaptive_badge.dart';
 import 'adaptive_bottom_navigation_bar.dart';
 import 'adaptive_button.dart';
+import 'navigation_image_icon.dart';
 import 'ios26/ios26_scaffold.dart';
 import '../toolbar/toolbar_chrome_scope.dart';
 import '../toolbar/toolbar_registry.dart';
@@ -18,6 +19,8 @@ class AdaptiveNavigationDestination {
     required this.icon,
     required this.label,
     this.selectedIcon,
+    this.iconPlaceholder,
+    this.iconErrorWidget,
     this.isSearch = false,
     this.badgeCount,
     this.badgeText,
@@ -32,7 +35,8 @@ class AdaptiveNavigationDestination {
   /// - SF Symbol name `String` for iOS native paths
   /// - `IconData`
   /// - `Widget`
-  /// - `ImageProvider` such as `AssetImage`, `FileImage`, or `NetworkImage`
+  /// - `ImageProvider` such as `AssetImage`, `FileImage`, `NetworkImage`, or
+  ///   `CachedNetworkImageProvider`
   final dynamic icon;
 
   /// Label text for the destination
@@ -44,6 +48,75 @@ class AdaptiveNavigationDestination {
   /// `String` (e.g. `magazine.fill`) which the iOS 26+ native tab bar applies
   /// when the destination is selected. Falls back to [icon] when null.
   final dynamic selectedIcon;
+
+  /// Widget shown while an image provider is loading, for either icon state.
+  /// Can be an Image.asset, Image, Icon, or any other widget.
+  final Widget? iconPlaceholder;
+
+  /// Widget shown when an image provider fails to load.
+  /// Defaults to a person avatar icon.
+  final Widget? iconErrorWidget;
+
+  /// Custom widgets and image providers requiring Flutter rendering use the
+  /// Flutter tab bar on iOS, preserving their loading and cache behavior.
+  bool get requiresFlutterIcon =>
+      iconPlaceholder != null ||
+      iconErrorWidget != null ||
+      _requiresFlutterIcon(icon) ||
+      (selectedIcon != null && _requiresFlutterIcon(selectedIcon));
+
+  static bool _requiresFlutterIcon(Object? icon) {
+    if (icon is ImageIcon) return _requiresFlutterIcon(icon.image);
+    if (icon is Widget) return true;
+    return icon is ImageProvider &&
+        icon is! AssetImage &&
+        icon is! FileImage &&
+        icon is! NetworkImage;
+  }
+
+  /// Builds an avatar for providers, or preserves a supplied image widget.
+  Widget buildIcon({bool selected = false}) {
+    final value = selected ? selectedIcon ?? icon : icon;
+    final provider = value is ImageIcon ? value.image : value;
+    if (provider is ImageProvider) {
+      return NavigationImageIcon(
+        image: provider,
+        placeholder: iconPlaceholder,
+        errorWidget: iconErrorWidget,
+      );
+    }
+    if (value is Widget) return value;
+    if (value is IconData) return Icon(value);
+    if (value is String) return Icon(_sfSymbolToCupertinoIcon(value));
+    return const Icon(CupertinoIcons.circle);
+  }
+
+  static IconData _sfSymbolToCupertinoIcon(String sfSymbol) {
+    const iconMap = {
+      'house': CupertinoIcons.house,
+      'house.fill': CupertinoIcons.house_fill,
+      'magnifyingglass': CupertinoIcons.search,
+      'heart': CupertinoIcons.heart,
+      'heart.fill': CupertinoIcons.heart_fill,
+      'person': CupertinoIcons.person,
+      'person.fill': CupertinoIcons.person_fill,
+      'gear': CupertinoIcons.settings,
+      'star': CupertinoIcons.star,
+      'star.fill': CupertinoIcons.star_fill,
+      'bell': CupertinoIcons.bell,
+      'bell.fill': CupertinoIcons.bell_fill,
+      'bag': CupertinoIcons.bag,
+      'bag.fill': CupertinoIcons.bag_fill,
+      'bookmark': CupertinoIcons.bookmark,
+      'bookmark.fill': CupertinoIcons.bookmark_fill,
+      'info.circle': CupertinoIcons.info_circle,
+      'info.circle.fill': CupertinoIcons.info_circle_fill,
+      'plus.circle': CupertinoIcons.add_circled,
+      'plus': CupertinoIcons.add,
+      'checkmark.circle': CupertinoIcons.checkmark_circle,
+    };
+    return iconMap[sfSymbol] ?? CupertinoIcons.circle;
+  }
 
   /// Whether this is a search tab (iOS 26+)
   /// Search tabs are visually separated and transform into a search field
@@ -597,12 +670,16 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
               items: widget.bottomNavigationBar!.items!.map((dest) {
                 Widget iconWidget = _buildNavigationIconWidget(
                   rawIcon: dest.icon,
+                  placeholder: dest.iconPlaceholder,
+                  errorWidget: dest.iconErrorWidget,
                   color: unselectedColor,
                   platform: TargetPlatform.iOS,
                 );
 
                 Widget activeIconWidget = _buildNavigationIconWidget(
                   rawIcon: dest.selectedIcon ?? dest.icon,
+                  placeholder: dest.iconPlaceholder,
+                  errorWidget: dest.iconErrorWidget,
                   platform: TargetPlatform.iOS,
                 );
 
@@ -871,11 +948,15 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
           destinations: widget.bottomNavigationBar!.items!.map((dest) {
             Widget iconWidget = _buildNavigationIconWidget(
               rawIcon: dest.icon,
+              placeholder: dest.iconPlaceholder,
+              errorWidget: dest.iconErrorWidget,
               platform: TargetPlatform.android,
             );
 
             Widget selectedIconWidget = _buildNavigationIconWidget(
               rawIcon: dest.selectedIcon ?? dest.icon,
+              placeholder: dest.iconPlaceholder,
+              errorWidget: dest.iconErrorWidget,
               platform: TargetPlatform.android,
             );
 
@@ -979,38 +1060,22 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
     );
   }
 
-  IconData _sfSymbolToCupertinoIcon(String sfSymbol) {
-    const iconMap = {
-      'house': CupertinoIcons.house,
-      'house.fill': CupertinoIcons.house_fill,
-      'magnifyingglass': CupertinoIcons.search,
-      'heart': CupertinoIcons.heart,
-      'heart.fill': CupertinoIcons.heart_fill,
-      'person': CupertinoIcons.person,
-      'person.fill': CupertinoIcons.person_fill,
-      'gear': CupertinoIcons.settings,
-      'star': CupertinoIcons.star,
-      'star.fill': CupertinoIcons.star_fill,
-      'bell': CupertinoIcons.bell,
-      'bell.fill': CupertinoIcons.bell_fill,
-      'bag': CupertinoIcons.bag,
-      'bag.fill': CupertinoIcons.bag_fill,
-      'bookmark': CupertinoIcons.bookmark,
-      'bookmark.fill': CupertinoIcons.bookmark_fill,
-      'info.circle': CupertinoIcons.info_circle,
-      'info.circle.fill': CupertinoIcons.info_circle_fill,
-      'plus.circle': CupertinoIcons.add_circled,
-      'plus': CupertinoIcons.add,
-      'checkmark.circle': CupertinoIcons.checkmark_circle,
-    };
-    return iconMap[sfSymbol] ?? CupertinoIcons.circle;
-  }
-
   Widget _buildNavigationIconWidget({
     required dynamic rawIcon,
     Color? color,
+    Widget? placeholder,
+    Widget? errorWidget,
     required TargetPlatform platform,
   }) {
+    if (rawIcon is ImageIcon &&
+        rawIcon.image != null &&
+        (placeholder != null || errorWidget != null)) {
+      return NavigationImageIcon(
+        image: rawIcon.image!,
+        placeholder: placeholder,
+        errorWidget: errorWidget,
+      );
+    }
     if (rawIcon is Widget) {
       return color != null && rawIcon is ImageIcon
           ? ImageIcon(rawIcon.image, color: color)
@@ -1018,41 +1083,23 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
     }
 
     if (rawIcon is ImageProvider) {
-      return _NavigationImageIcon(image: rawIcon);
+      return NavigationImageIcon(
+        image: rawIcon,
+        placeholder: placeholder,
+        errorWidget: errorWidget,
+      );
     }
 
     final IconData iconData;
     if (rawIcon is String) {
       iconData = platform == TargetPlatform.iOS
-          ? _sfSymbolToCupertinoIcon(rawIcon)
+          ? AdaptiveNavigationDestination._sfSymbolToCupertinoIcon(rawIcon)
           : Icons.circle;
     } else {
       iconData = rawIcon as IconData;
     }
 
     return color != null ? Icon(iconData, color: color) : Icon(iconData);
-  }
-}
-
-class _NavigationImageIcon extends StatelessWidget {
-  const _NavigationImageIcon({required this.image});
-
-  final ImageProvider image;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 26,
-      height: 26,
-      child: ClipOval(
-        child: Image(
-          image: image,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              const Icon(CupertinoIcons.person_crop_circle),
-        ),
-      ),
-    );
   }
 }
 
