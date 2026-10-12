@@ -108,3 +108,12 @@ Glass controls. The native capsule itself remains in use.
 - Native Swift code is type-checked against the iOS simulator SDK. A separate
   Core Graphics check verifies RGBA byte order and premultiplied alpha.
 - Liquid Glass appearance has not been visually verified on an iOS device.
+
+## Native tab icon tint
+
+Flutter-rendered icons use UIKit template rendering on the native iOS tab bar.
+`unselectedItemColor` colors unselected icons, and the selected tab tint colors
+selected icons. UIKit uses the bitmap alpha as the icon mask, so original RGB
+colors (including photo colors) are replaced by the state tint. Tint changes
+do not require another Flutter snapshot or image upload. Liquid Glass remains
+provided by the native tab bar.

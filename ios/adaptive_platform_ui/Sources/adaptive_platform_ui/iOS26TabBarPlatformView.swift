@@ -455,8 +455,10 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                           shouldInterpolate: true, intent: .defaultIntent) else { continue }
                 // The in-process channel carries tiny RGBA bitmaps directly;
                 // no PNG decode, extra resizing, or second shared-state bitmap.
+                // Template rendering lets UITabBar apply selected tint and
+                // unselectedItemTintColor without recapturing Flutter pixels.
                 let rendered = UIImage(cgImage: image, scale: CGFloat(scale), orientation: .up)
-                    .withRenderingMode(.alwaysOriginal)
+                    .withRenderingMode(.alwaysTemplate)
                 if selected { selectedFlutterIcons[index] = rendered }
                 else { flutterIcons[index] = rendered }
                 if (icon["both"] as? Bool) == true {
