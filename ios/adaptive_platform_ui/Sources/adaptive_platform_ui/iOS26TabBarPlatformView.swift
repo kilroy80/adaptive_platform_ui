@@ -38,6 +38,9 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     private var currentBadgeTexts: [String?] = []
     private var currentBadgeColors: [Int?] = []
     private var currentBadgeTextColors: [Int?] = []
+    private var iconRevision = 0
+    private var flutterIcons: [Int: UIImage] = [:]
+    private var selectedFlutterIcons: [Int: UIImage] = [:]
     private let imageCache = NSCache<NSString, UIImage>()
 
     /// Applies a badge to a tab bar item from the Flutter-provided styling.
@@ -111,6 +114,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             selectedAssetIcons = (dict["selectedAssetIcons"] as? [String]) ?? []
             fileIcons = (dict["fileIcons"] as? [String]) ?? []
             selectedFileIcons = (dict["selectedFileIcons"] as? [String]) ?? []
+            iconRevision = (dict["iconRevision"] as? NSNumber)?.intValue ?? 0
             networkIcons = (dict["networkIcons"] as? [String]) ?? []
             selectedNetworkIcons = (dict["selectedNetworkIcons"] as? [String]) ?? []
             searchFlags = (dict["searchFlags"] as? [Bool]) ?? []
@@ -327,6 +331,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                     textColorARGB: Self.badgeAt(badgeTextColors, i)
                 )
 
+                self.applyFlutterImages(to: item, index: i)
                 items.append(item)
             }
             return items
@@ -421,6 +426,48 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 result(["width": Double(self.container.bounds.width), "height": 50.0])
             }
 
+        case "setFlutterIcons":
+            guard let args = call.arguments as? [String: Any],
+                  let revision = (args["revision"] as? NSNumber)?.intValue,
+                  revision == iconRevision,
+                  let icons = args["icons"] as? [[String: Any]] else {
+                result(nil)
+                return
+            }
+            for icon in icons {
+                guard let index = (icon["index"] as? NSNumber)?.intValue,
+                      index >= 0, index < currentLabels.count,
+                      let selected = icon["selected"] as? Bool,
+                      let bytes = icon["bytes"] as? FlutterStandardTypedData,
+                      let width = (icon["width"] as? NSNumber)?.intValue,
+                      let height = (icon["height"] as? NSNumber)?.intValue,
+                      let scale = (icon["scale"] as? NSNumber)?.doubleValue,
+                      width > 0, width <= 1024, height > 0, height <= 1024,
+                      scale.isFinite, scale > 0,
+                      bytes.data.count == width * height * 4,
+                      let provider = CGDataProvider(data: bytes.data as CFData),
+                      let image = CGImage(width: width, height: height,
+                          bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+                          space: CGColorSpaceCreateDeviceRGB(),
+                          bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
+                              .union(.byteOrder32Big),
+                          provider: provider, decode: nil,
+                          shouldInterpolate: true, intent: .defaultIntent) else { continue }
+                // The in-process channel carries tiny RGBA bitmaps directly;
+                // no PNG decode, extra resizing, or second shared-state bitmap.
+                let rendered = UIImage(cgImage: image, scale: CGFloat(scale), orientation: .up)
+                    .withRenderingMode(.alwaysOriginal)
+                if selected { selectedFlutterIcons[index] = rendered }
+                else { flutterIcons[index] = rendered }
+                if (icon["both"] as? Bool) == true {
+                    selectedFlutterIcons[index] = rendered
+                }
+                if let items = tabBar?.items, index < items.count {
+                    applyFlutterImages(to: items[index], index: index)
+                }
+            }
+            result(nil)
+
         case "setItems":
             guard let args = call.arguments as? [String: Any],
                   let labels = args["labels"] as? [String],
@@ -446,6 +493,19 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             let badgeColors: [Int?] = (args["badgeColors"] as? [NSNumber?])?.map { $0?.intValue } ?? []
             let badgeTextColors: [Int?] = (args["badgeTextColors"] as? [NSNumber?])?.map { $0?.intValue } ?? []
 
+            let revision = (args["iconRevision"] as? NSNumber)?.intValue ?? 0
+            if revision != iconRevision {
+                iconRevision = revision
+                // Keep the last visible pixels for unchanged managed slots.
+                // New placeholders/pixels replace them; stale updates are rejected.
+                let states = (args["flutterIconStates"] as? [[Bool]]) ?? []
+                flutterIcons = flutterIcons.filter { index, _ in
+                    index < states.count && states[index].count == 2 && states[index][0]
+                }
+                selectedFlutterIcons = selectedFlutterIcons.filter { index, _ in
+                    index < states.count && states[index].count == 2 && states[index][1]
+                }
+            }
             self.currentLabels = labels
             self.currentSymbols = symbols
             self.currentSelectedSymbols = selectedSymbols
@@ -566,6 +626,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                         textColorARGB: Self.badgeAt(badgeTextColors, i)
                     )
 
+                    self.applyFlutterImages(to: item, index: i)
                     items.append(item)
                 }
                 return items
@@ -817,6 +878,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 textColorARGB: Self.badgeAt(currentBadgeTextColors, i)
             )
 
+            self.applyFlutterImages(to: item, index: i)
             items.append(item)
         }
 
@@ -840,6 +902,11 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         let g = CGFloat((argb >> 8) & 0xFF) / 255.0
         let b = CGFloat(argb & 0xFF) / 255.0
         return UIColor(red: r, green: g, blue: b, alpha: a)
+    }
+
+    private func applyFlutterImages(to item: UITabBarItem, index: Int) {
+        if let image = flutterIcons[index] { item.image = image }
+        if let image = selectedFlutterIcons[index] { item.selectedImage = image }
     }
 
     private func runtimeFilePath(for index: Int, selected: Bool) -> String {
@@ -937,19 +1004,21 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         item.selectedImage = (selectedImage ?? unselectedImage ?? placeholderAvatarImage())?.withRenderingMode(.alwaysOriginal)
 
         if unselectedImage == nil && !unselectedNetwork.isEmpty {
-            fetchNetworkImageIfNeeded(urlString: unselectedNetwork) { [weak item] avatar in
+            fetchNetworkImageIfNeeded(urlString: unselectedNetwork) { [weak self, weak item] avatar in
                 guard let item = item, let avatar = avatar else { return }
                 item.image = avatar.withRenderingMode(.alwaysOriginal)
                 if selectedImage == nil && selectedNetwork.isEmpty && selectedFile.isEmpty {
                     item.selectedImage = avatar.withRenderingMode(.alwaysOriginal)
                 }
+                self?.applyFlutterImages(to: item, index: index)
             }
         }
 
         if selectedImage == nil && !selectedNetwork.isEmpty {
-            fetchNetworkImageIfNeeded(urlString: selectedNetwork) { [weak item] avatar in
+            fetchNetworkImageIfNeeded(urlString: selectedNetwork) { [weak self, weak item] avatar in
                 guard let item = item, let avatar = avatar else { return }
                 item.selectedImage = avatar.withRenderingMode(.alwaysOriginal)
+                self?.applyFlutterImages(to: item, index: index)
             }
         }
 

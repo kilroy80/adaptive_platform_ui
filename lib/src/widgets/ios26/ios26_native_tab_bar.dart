@@ -1,9 +1,10 @@
-import 'dart:io';
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import '../adaptive_scaffold.dart';
+import 'native_icon_snapshot.dart';
 
 /// Native iOS 26 tab bar using UITabBar platform view
 class IOS26NativeTabBar extends StatefulWidget {
@@ -45,6 +46,14 @@ class IOS26NativeTabBar extends StatefulWidget {
 
 class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   MethodChannel? _channel;
+  int _iconRevision = 0;
+  int? _lastIconRevision;
+  final Map<(int, bool), NativeIconPixels> _iconPixels = {};
+  final Set<(int, bool)> _dirtyIconPixels = {};
+  Timer? _iconSendTimer;
+  bool _sendingIconPixels = false;
+  int? _nativeIconRevision;
+
   int? _lastIndex;
   int? _lastTint;
   int? _lastUnselectedTint;
@@ -77,7 +86,36 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   @override
   void didUpdateWidget(covariant IOS26NativeTabBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.hidden) {
+      _iconSendTimer?.cancel();
+      _iconSendTimer = null;
+    }
+    if (!_sameImageInputs(oldWidget.destinations, widget.destinations)) {
+      _iconRevision++;
+      _nativeIconRevision = null;
+      _dirtyIconPixels.removeWhere(
+        (key) =>
+            key.$1 >= widget.destinations.length ||
+            !widget.destinations[key.$1].requiresFlutterIconFor(key.$2) ||
+            (key.$2 && _sharesIcon(key.$1)),
+      );
+      _iconPixels.removeWhere(
+        (key, _) =>
+            key.$1 >= widget.destinations.length ||
+            !widget.destinations[key.$1].requiresFlutterIconFor(key.$2) ||
+            (key.$2 && _sharesIcon(key.$1)),
+      );
+      for (var i = 0; i < widget.destinations.length; i++) {
+        if (_sharesIcon(i) &&
+            (i >= oldWidget.destinations.length ||
+                !_sharesDestinationIcon(oldWidget.destinations[i])) &&
+            _iconPixels.containsKey((i, false))) {
+          _dirtyIconPixels.add((i, false));
+        }
+      }
+    }
     _syncPropsToNativeIfNeeded();
+    _queueIconPixels();
   }
 
   @override
@@ -90,6 +128,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
 
   @override
   void dispose() {
+    _iconSendTimer?.cancel();
     _channel?.setMethodCallHandler(null);
     super.dispose();
   }
@@ -146,33 +185,153 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
     return '';
   }
 
-  List<String> _mapSymbols() =>
-      widget.destinations.map((e) => _extractSymbol(e.icon)).toList();
+  List<String> _mapIcons(String Function(Object?) extract, bool selected) =>
+      widget.destinations
+          .map(
+            (d) => d.requiresFlutterIconFor(selected)
+                ? ''
+                : extract(selected ? d.selectedIcon ?? d.icon : d.icon),
+          )
+          .toList();
 
-  List<String> _mapSelectedSymbols() => widget.destinations
-      .map((e) => _extractSymbol(e.selectedIcon ?? e.icon))
-      .toList();
+  List<String> _mapSymbols() => _mapIcons(_extractSymbol, false);
+  List<String> _mapSelectedSymbols() => _mapIcons(_extractSymbol, true);
+  List<String> _mapAssetIcons() => _mapIcons(_extractAssetPath, false);
+  List<String> _mapSelectedAssetIcons() => _mapIcons(_extractAssetPath, true);
+  List<String> _mapFileIcons() => _mapIcons(_extractFilePath, false);
+  List<String> _mapSelectedFileIcons() => _mapIcons(_extractFilePath, true);
+  List<String> _mapNetworkIcons() => _mapIcons(_extractNetworkUrl, false);
+  List<String> _mapSelectedNetworkIcons() =>
+      _mapIcons(_extractNetworkUrl, true);
 
-  List<String> _mapAssetIcons() =>
-      widget.destinations.map((e) => _extractAssetPath(e.icon)).toList();
+  bool _sameImageInputs(
+    List<AdaptiveNavigationDestination> a,
+    List<AdaptiveNavigationDestination> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].icon != b[i].icon ||
+          a[i].selectedIcon != b[i].selectedIcon ||
+          a[i].iconPlaceholder != b[i].iconPlaceholder ||
+          a[i].iconErrorWidget != b[i].iconErrorWidget) {
+        return false;
+      }
+    }
+    return true;
+  }
 
-  List<String> _mapSelectedAssetIcons() => widget.destinations
-      .map((e) => _extractAssetPath(e.selectedIcon ?? e.icon))
-      .toList();
+  bool _sharesDestinationIcon(AdaptiveNavigationDestination d) =>
+      d.requiresFlutterIconFor(false) &&
+      d.requiresFlutterIconFor(true) &&
+      (d.selectedIcon == null || d.selectedIcon == d.icon);
 
-  List<String> _mapFileIcons() =>
-      widget.destinations.map((e) => _extractFilePath(e.icon)).toList();
+  bool _sharesIcon(int index) =>
+      _sharesDestinationIcon(widget.destinations[index]);
 
-  List<String> _mapSelectedFileIcons() => widget.destinations
-      .map((e) => _extractFilePath(e.selectedIcon ?? e.icon))
-      .toList();
+  List<List<bool>> get _flutterIconStates => [
+    for (final d in widget.destinations)
+      [d.requiresFlutterIconFor(false), d.requiresFlutterIconFor(true)],
+  ];
 
-  List<String> _mapNetworkIcons() =>
-      widget.destinations.map((e) => _extractNetworkUrl(e.icon)).toList();
+  void _queueIconPixels() {
+    if (widget.hidden ||
+        _dirtyIconPixels.isEmpty ||
+        _sendingIconPixels ||
+        _iconSendTimer != null ||
+        _nativeIconRevision != _iconRevision) {
+      return;
+    }
+    // Coalesce normal/selected and multiple icon changes into one small batch.
+    _iconSendTimer = Timer(const Duration(milliseconds: 16), () {
+      _iconSendTimer = null;
+      _sendIconPixels();
+    });
+  }
 
-  List<String> _mapSelectedNetworkIcons() => widget.destinations
-      .map((e) => _extractNetworkUrl(e.selectedIcon ?? e.icon))
-      .toList();
+  Future<void> _sendIconPixels() async {
+    final ch = _channel;
+    if (widget.hidden ||
+        ch == null ||
+        _dirtyIconPixels.isEmpty ||
+        _sendingIconPixels ||
+        _nativeIconRevision != _iconRevision) {
+      return;
+    }
+    final revision = _iconRevision;
+    final keys = _dirtyIconPixels.toList();
+    _dirtyIconPixels.removeAll(keys);
+    _sendingIconPixels = true;
+    try {
+      await ch.invokeMethod('setFlutterIcons', {
+        'revision': revision,
+        'icons': [
+          for (final key in keys)
+            if (_iconPixels[key] != null)
+              {
+                'index': key.$1,
+                'selected': key.$2,
+                'both': !key.$2 && _sharesIcon(key.$1),
+                'bytes': _iconPixels[key]!.rgba,
+                'width': _iconPixels[key]!.width,
+                'height': _iconPixels[key]!.height,
+                'scale': _iconPixels[key]!.scale,
+              },
+        ],
+      });
+    } on PlatformException {
+      // Cached pixels are replayed when a new platform view is created.
+    } on MissingPluginException {
+      // The view went away before its channel received the update.
+    } finally {
+      _sendingIconPixels = false;
+      if (mounted) {
+        if (revision != _iconRevision || ch != _channel) {
+          // The receiver may have rejected this batch after a revision/view
+          // change. Resend current cached pixels, not the stale payload.
+          _dirtyIconPixels.addAll(keys.where(_iconPixels.containsKey));
+        }
+        _queueIconPixels();
+      }
+    }
+  }
+
+  Widget _withIconSnapshots(Widget nativeBar) {
+    final revision = _iconRevision;
+    return Stack(
+      children: [
+        nativeBar,
+        if (!widget.hidden)
+          for (var i = 0; i < widget.destinations.length; i++)
+            for (final selected in [false, true])
+              if (widget.destinations[i].requiresFlutterIconFor(selected) &&
+                  (!selected || !_sharesIcon(i)))
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  width: 26,
+                  height: 26,
+                  child: NativeIconSnapshot(
+                    key: ValueKey((i, selected)),
+                    onPixels: (pixels) {
+                      if (!mounted || revision != _iconRevision) return;
+                      final cached = _iconPixels[(i, selected)];
+                      if (cached != null &&
+                          cached.width == pixels.width &&
+                          cached.height == pixels.height &&
+                          cached.scale == pixels.scale &&
+                          listEquals(cached.rgba, pixels.rgba)) {
+                        return;
+                      }
+                      _iconPixels[(i, selected)] = pixels;
+                      _dirtyIconPixels.add((i, selected));
+                      _queueIconPixels();
+                    },
+                    child: widget.destinations[i].buildIcon(selected: selected),
+                  ),
+                ),
+      ],
+    );
+  }
 
   // Native badge styling: badge content + colors mapped to the
   // native side (UITabBarItem.badgeValue / .badgeColor / badge text attrs).
@@ -192,9 +351,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
 
   @override
   Widget build(BuildContext context) {
-    if (!kIsWeb &&
-        Platform.isIOS &&
-        !widget.destinations.any((d) => d.requiresFlutterIcon)) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
       final labels = widget.destinations.map((e) => e.label).toList();
       final symbols = _mapSymbols();
       final selectedSymbols = _mapSelectedSymbols();
@@ -215,6 +372,8 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
           .toList();
 
       final creationParams = <String, dynamic>{
+        'iconRevision': _iconRevision,
+        'flutterIconStates': _flutterIconStates,
         'labels': labels,
         'sfSymbols': symbols,
         'selectedSfSymbols': selectedSymbols,
@@ -254,7 +413,12 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
           : const SizedBox.shrink();
 
       final h = widget.height ?? _intrinsicHeight ?? 50.0;
-      return SizedBox(height: h, child: platformView);
+      return SizedBox(
+        height: h,
+        child: widget.showNativeView
+            ? _withIconSnapshots(platformView)
+            : platformView,
+      );
     }
 
     // Flutter resolves custom providers so caches and placeholders are honored.
@@ -302,6 +466,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   void _onCreated(int id) {
     final ch = MethodChannel('adaptive_platform_ui/ios26_tab_bar_$id');
     _channel = ch;
+    _nativeIconRevision = null;
     ch.setMethodCallHandler(_onMethodCall);
     _lastIndex = null;
     _lastTint = _effectiveTint != null ? _colorToARGB(_effectiveTint!) : null;
@@ -382,7 +547,8 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
     final searchFlags = widget.destinations.map((e) => e.isSearch).toList();
     final badgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
 
-    if (_lastLabels?.join('|') != labels.join('|') ||
+    if (_lastIconRevision != _iconRevision ||
+        _lastLabels?.join('|') != labels.join('|') ||
         _lastSymbols?.join('|') != symbols.join('|') ||
         _lastSelectedSymbols?.join('|') != selectedSymbols.join('|') ||
         _lastAssetIcons?.join('|') != assetIcons.join('|') ||
@@ -392,7 +558,10 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         _lastNetworkIcons?.join('|') != networkIcons.join('|') ||
         _lastSelectedNetworkIcons?.join('|') !=
             selectedNetworkIcons.join('|')) {
+      final revision = _iconRevision;
       await ch.invokeMethod('setItems', {
+        'iconRevision': revision,
+        'flutterIconStates': _flutterIconStates,
         'labels': labels,
         'sfSymbols': symbols,
         'selectedSfSymbols': selectedSymbols,
@@ -409,6 +578,11 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         'badgeTextColors': _mapBadgeTextColors(),
         'selectedIndex': widget.selectedIndex,
       });
+      _lastIconRevision = revision;
+      if (mounted && _channel == ch && _iconRevision == revision) {
+        _nativeIconRevision = revision;
+        _queueIconPixels();
+      }
       _lastLabels = labels;
       _lastSymbols = symbols;
       _lastSelectedSymbols = selectedSymbols;
@@ -477,6 +651,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   }
 
   void _cacheItems() {
+    _lastIconRevision = _iconRevision;
     _lastLabels = widget.destinations.map((e) => e.label).toList();
     _lastSymbols = _mapSymbols();
     _lastSelectedSymbols = _mapSelectedSymbols();
@@ -529,7 +704,10 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
     final badgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
 
     try {
+      final revision = _iconRevision;
       await ch.invokeMethod('setItems', {
+        'iconRevision': revision,
+        'flutterIconStates': _flutterIconStates,
         'labels': labels,
         'sfSymbols': symbols,
         'selectedSfSymbols': selectedSymbols,
@@ -547,6 +725,11 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         'selectedIndex': widget.selectedIndex,
       });
 
+      if (mounted && _channel == ch && _iconRevision == revision) {
+        _nativeIconRevision = revision;
+        _dirtyIconPixels.addAll(_iconPixels.keys);
+        _queueIconPixels();
+      }
       final style = <String, dynamic>{};
       if (_effectiveTint != null) {
         style['tint'] = _colorToARGB(_effectiveTint!);

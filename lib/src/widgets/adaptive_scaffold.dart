@@ -57,13 +57,18 @@ class AdaptiveNavigationDestination {
   /// Defaults to a person avatar icon.
   final Widget? iconErrorWidget;
 
-  /// Custom widgets and image providers requiring Flutter rendering use the
-  /// Flutter tab bar on iOS, preserving their loading and cache behavior.
+  /// Whether either icon needs Flutter rendering before being sent to UIKit.
   bool get requiresFlutterIcon =>
-      iconPlaceholder != null ||
-      iconErrorWidget != null ||
-      _requiresFlutterIcon(icon) ||
-      (selectedIcon != null && _requiresFlutterIcon(selectedIcon));
+      requiresFlutterIconFor(false) || requiresFlutterIconFor(true);
+
+  /// UIKit receives rendered pixels for custom providers and widgets, keeping
+  /// the native Liquid Glass tab bar and its behaviors intact.
+  bool requiresFlutterIconFor(bool selected) {
+    final value = selected ? selectedIcon ?? icon : icon;
+    final isImage = value is ImageProvider || value is ImageIcon;
+    return (isImage && (iconPlaceholder != null || iconErrorWidget != null)) ||
+        _requiresFlutterIcon(value);
+  }
 
   static bool _requiresFlutterIcon(Object? icon) {
     if (icon is ImageIcon) return _requiresFlutterIcon(icon.image);
