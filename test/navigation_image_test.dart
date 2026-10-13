@@ -92,7 +92,84 @@ void main() {
     }
   });
 
-  testWidgets('image widgets can opt into inherited tint', (tester) async {
+  testWidgets(
+    'selected network image tint stays distinct from indicator after taps',
+    (tester) async {
+      final provider = DeferredNetworkImage();
+      var selectedIndex = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            navigationBarTheme: const NavigationBarThemeData(
+              indicatorColor: Colors.yellow,
+            ),
+          ),
+          home: StatefulBuilder(
+            builder: (context, setState) => AdaptiveScaffold(
+              body: const SizedBox(),
+              bottomNavigationBar: AdaptiveBottomNavigationBar(
+                selectedIndex: selectedIndex,
+                onTap: (index) => setState(() => selectedIndex = index),
+                selectedItemColor: Colors.red,
+                unselectedItemColor: Colors.blue,
+                items: [
+                  for (final label in ['Profile', 'Other'])
+                    AdaptiveNavigationDestination(
+                      icon: provider,
+                      label: label,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder).drawColor(Colors.white, BlendMode.src);
+      final picture = recorder.endRecording();
+      provider.completer.complete(
+        ImageInfo(image: await picture.toImage(1, 1)),
+      );
+      picture.dispose();
+      await tester.pumpAndSettle();
+
+      void expectSelectedImage(String label) {
+        final destination = find.ancestor(
+          of: find.text(label),
+          matching: find.byType(NavigationDestination),
+        );
+        final indicator = tester.widget<NavigationIndicator>(
+          find.descendant(
+            of: destination,
+            matching: find.byType(NavigationIndicator),
+          ),
+        );
+        expect(indicator.color, Colors.yellow);
+        expect(indicator.animation.value, 1);
+        final filters = tester.widgetList<ColorFiltered>(
+          find.descendant(
+            of: destination,
+            matching: find.byType(ColorFiltered),
+          ),
+        );
+        expect(
+          filters.map((w) => w.colorFilter),
+          contains(const ColorFilter.mode(Colors.red, BlendMode.srcIn)),
+        );
+        expect(
+          find.descendant(of: destination, matching: find.byType(RawImage)),
+          findsWidgets,
+        );
+      }
+
+      expectSelectedImage('Profile');
+      await tester.tap(find.text('Other'));
+      await tester.pumpAndSettle();
+      expectSelectedImage('Other');
+    },
+  );
+
+  testWidgets('image widgets use inherited tint by default', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: IconTheme(
@@ -100,7 +177,6 @@ void main() {
           child: const AdaptiveNavigationDestination(
             icon: SizedBox(width: 26, height: 26),
             label: 'Image',
-            applyImageTint: true,
           ).buildIcon(),
         ),
       ),

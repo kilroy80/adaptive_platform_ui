@@ -21,7 +21,7 @@ class AdaptiveNavigationDestination {
     this.selectedIcon,
     this.iconPlaceholder,
     this.iconErrorWidget,
-    this.applyImageTint = false,
+    this.applyImageTint = true,
     this.isSearch = false,
     this.badgeCount,
     this.badgeText,
@@ -59,8 +59,8 @@ class AdaptiveNavigationDestination {
   final Widget? iconErrorWidget;
 
   /// Apply navigation item colors to image providers and custom image widgets.
-  /// Defaults to false to preserve original colors. Does not affect Icon/IconData
-  /// or SF Symbols. Applies to both normal and selected images.
+  /// Defaults to true. Set to false to preserve original image colors.
+  /// Does not affect Icon/IconData or SF Symbols. Applies to both icon states.
   final bool applyImageTint;
 
   bool _isImage(Object? value) =>
@@ -989,7 +989,7 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
         bottomNavBar = NavigationBar(
           selectedIndex: widget.bottomNavigationBar!.selectedIndex!,
           onDestinationSelected: widget.bottomNavigationBar!.onTap!,
-          indicatorColor: widget.bottomNavigationBar!.selectedItemColor,
+          // Keep the indicator theme color distinct from the selected icon tint.
           destinations: widget.bottomNavigationBar!.items!.map((dest) {
             Widget iconWidget = dest.buildIcon(
               platform: TargetPlatform.android,

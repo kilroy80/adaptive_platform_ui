@@ -194,12 +194,14 @@ void main() {
             bottomNavigationBar: IOS26NativeTabBar(
               destinations: const [
                 AdaptiveNavigationDestination(
+                  applyImageTint: false,
                   icon: ColoredBox(color: Colors.red),
                   selectedIcon: ColoredBox(color: Colors.blue),
                   label: 'Profile',
                   badgeText: 'NEW',
                 ),
                 AdaptiveNavigationDestination(
+                  applyImageTint: false,
                   icon: 'magnifyingglass',
                   label: 'Search',
                   isSearch: true,
@@ -231,11 +233,13 @@ void main() {
             bottomNavigationBar: IOS26NativeTabBar(
               destinations: const [
                 AdaptiveNavigationDestination(
+                  applyImageTint: false,
                   icon: ColoredBox(color: Colors.green),
                   selectedIcon: 'heart',
                   label: 'Profile',
                 ),
                 AdaptiveNavigationDestination(
+                  applyImageTint: false,
                   icon: 'magnifyingglass',
                   label: 'Search',
                   isSearch: true,
@@ -275,10 +279,12 @@ void main() {
       addTearDown(harness.dispose);
       const initial = [
         AdaptiveNavigationDestination(
+          applyImageTint: false,
           icon: ColoredBox(color: Colors.red),
           label: 'One',
         ),
         AdaptiveNavigationDestination(
+          applyImageTint: false,
           icon: ColoredBox(color: Colors.blue),
           label: 'Two',
         ),
@@ -300,10 +306,12 @@ void main() {
       final oldBar = tester.widget<UiKitView>(find.byType(UiKitView));
       const changed = [
         AdaptiveNavigationDestination(
+          applyImageTint: false,
           icon: ColoredBox(color: Colors.green),
           label: 'One',
         ),
         AdaptiveNavigationDestination(
+          applyImageTint: false,
           icon: ColoredBox(color: Colors.blue),
           label: 'Two',
         ),
@@ -366,10 +374,12 @@ void main() {
     addTearDown(harness.dispose);
     const initial = [
       AdaptiveNavigationDestination(
+        applyImageTint: false,
         icon: ColoredBox(color: Colors.red),
         label: 'One',
       ),
       AdaptiveNavigationDestination(
+        applyImageTint: false,
         icon: ColoredBox(color: Colors.blue),
         label: 'Two',
       ),
@@ -388,10 +398,12 @@ void main() {
     await tester.pumpWidget(
       harness.build(const [
         AdaptiveNavigationDestination(
+          applyImageTint: false,
           icon: ColoredBox(color: Colors.green),
           label: 'One',
         ),
         AdaptiveNavigationDestination(
+          applyImageTint: false,
           icon: ColoredBox(color: Colors.blue),
           label: 'Two',
         ),

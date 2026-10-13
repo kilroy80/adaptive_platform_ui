@@ -74,7 +74,8 @@ class AdaptiveBottomNavigationBar {
   ///
   /// When provided:
   /// - iOS (native/CupertinoTabBar): Sets activeColor
-  /// - Android (NavigationBar): Sets indicatorColor
+  /// - Android (NavigationBar): Sets selected icon colors. The selection
+  ///   indicator uses NavigationBarThemeData.indicatorColor or the Material default.
   ///
   /// Images use this color only when the destination enables applyImageTint.
   /// If null, uses platform defaults.
