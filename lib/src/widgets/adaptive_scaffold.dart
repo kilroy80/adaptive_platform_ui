@@ -22,6 +22,7 @@ class AdaptiveNavigationDestination {
     this.iconPlaceholder,
     this.iconErrorWidget,
     this.applyImageTint = true,
+    this.applyTextTint = true,
     this.isSearch = false,
     this.badgeCount,
     this.badgeText,
@@ -62,6 +63,48 @@ class AdaptiveNavigationDestination {
   /// Defaults to true. Set to false to preserve original image colors.
   /// Does not affect Icon/IconData or SF Symbols. Applies to both icon states.
   final bool applyImageTint;
+
+  /// Apply selectedItemColor and unselectedItemColor to this label.
+  /// Defaults to true. Set to false to keep platform/theme label colors.
+  /// Independent of applyImageTint. Custom bottom navigation bars are unaffected.
+  final bool applyTextTint;
+
+  /// Keeps Cupertino label tint independent from icon tint without changing
+  /// the tab bar's layout, selection semantics, or tap handling.
+  BottomNavigationBarItem buildCupertinoItem(
+    BuildContext context, {
+    Color? selectedColor,
+    Color? unselectedColor,
+  }) {
+    Widget build(bool selected) {
+      var child = buildIcon(
+        selected: selected,
+        color: selected ? selectedColor : unselectedColor,
+      );
+      if (hasBadge) child = wrapWithBadge(child);
+      if (applyTextTint) return child;
+      final color = selected
+          ? CupertinoTheme.of(context).primaryColor
+          : CupertinoColors.inactiveGray;
+      return Column(
+        children: [
+          Expanded(child: Center(child: child)),
+          Text(
+            label,
+            style: TextStyle(
+              color: CupertinoDynamicColor.resolve(color, context),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return BottomNavigationBarItem(
+      icon: build(false),
+      activeIcon: build(true),
+      label: applyTextTint ? label : null,
+    );
+  }
 
   bool _isImage(Object? value) =>
       value is ImageProvider || (value is Widget && value is! Icon);
@@ -718,27 +761,20 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
               currentIndex: widget.bottomNavigationBar!.selectedIndex!,
               onTap: widget.bottomNavigationBar!.onTap!,
               activeColor: widget.bottomNavigationBar!.selectedItemColor,
-              items: widget.bottomNavigationBar!.items!.map((dest) {
-                Widget iconWidget = dest.buildIcon(
-                  color: widget.bottomNavigationBar!.unselectedItemColor,
-                );
-
-                Widget activeIconWidget = dest.buildIcon(
-                  selected: true,
-                  color: widget.bottomNavigationBar!.selectedItemColor,
-                );
-
-                if (dest.hasBadge) {
-                  iconWidget = dest.wrapWithBadge(iconWidget);
-                  activeIconWidget = dest.wrapWithBadge(activeIconWidget);
-                }
-
-                return BottomNavigationBarItem(
-                  icon: iconWidget,
-                  activeIcon: activeIconWidget,
-                  label: dest.label,
-                );
-              }).toList(),
+              inactiveColor:
+                  widget.bottomNavigationBar!.unselectedItemColor ??
+                  CupertinoColors.inactiveGray,
+              items: widget.bottomNavigationBar!.items!
+                  .map(
+                    (dest) => dest.buildCupertinoItem(
+                      context,
+                      selectedColor:
+                          widget.bottomNavigationBar!.selectedItemColor,
+                      unselectedColor:
+                          widget.bottomNavigationBar!.unselectedItemColor,
+                    ),
+                  )
+                  .toList(),
             );
           }
         }
@@ -1007,10 +1043,39 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
               selectedIconWidget = dest.wrapWithBadge(selectedIconWidget);
             }
 
-            return NavigationDestination(
+            final destination = NavigationDestination(
               icon: iconWidget,
               selectedIcon: selectedIconWidget,
               label: dest.label,
+            );
+            final bar = widget.bottomNavigationBar!;
+            if (!dest.applyTextTint ||
+                (bar.selectedItemColor == null &&
+                    bar.unselectedItemColor == null)) {
+              return destination;
+            }
+            final theme = Theme.of(context);
+            final navigationTheme = NavigationBarTheme.of(context);
+            return NavigationBarTheme(
+              data: navigationTheme.copyWith(
+                labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                  final original = navigationTheme.labelTextStyle?.resolve(
+                    states,
+                  );
+                  if (states.contains(WidgetState.disabled)) return original;
+                  final color = states.contains(WidgetState.selected)
+                      ? bar.selectedItemColor
+                      : bar.unselectedItemColor;
+                  if (color == null) return original;
+                  final style =
+                      original ??
+                      (theme.useMaterial3
+                          ? theme.textTheme.labelMedium
+                          : theme.textTheme.labelSmall);
+                  return (style ?? const TextStyle()).copyWith(color: color);
+                }),
+              ),
+              child: destination,
             );
           }).toList(),
         );

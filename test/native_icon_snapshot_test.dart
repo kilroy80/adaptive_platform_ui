@@ -218,6 +218,7 @@ void main() {
       expect(find.byType(UiKitView), findsOneWidget);
       expect(find.byType(CupertinoTabBar), findsNothing);
       expect(params!['searchFlags'], [false, true]);
+      expect(params!['textTintFlags'], [true, true]);
       expect(params!['badgeTexts'], ['NEW', null]);
       final images = calls.where((c) => c.method == 'setFlutterIcons').toList();
       expect(images, isNotEmpty);
@@ -421,6 +422,44 @@ void main() {
       reason: 'Unchanged icon Two must not lose its first pending upload',
     );
     expect(sent.any((icon) => icon['index'] == 0), isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
+  testWidgets('native label opt-out updates without recreating bar', (
+    tester,
+  ) async {
+    final harness = NativeBarHarness();
+    harness.install();
+    addTearDown(harness.dispose);
+    await tester.pumpWidget(
+      harness.build(const [
+        AdaptiveNavigationDestination(icon: 'house', label: 'Home'),
+        AdaptiveNavigationDestination(
+          icon: 'person',
+          label: 'Profile',
+          applyTextTint: false,
+        ),
+      ]),
+    );
+    await tester.pump();
+    final initial =
+        harness.calls.lastWhere((c) => c.method == 'setItems').arguments as Map;
+    expect(initial['textTintFlags'], [true, false]);
+    await tester.pumpWidget(
+      harness.build(const [
+        AdaptiveNavigationDestination(
+          icon: 'house',
+          label: 'Home',
+          applyTextTint: false,
+        ),
+        AdaptiveNavigationDestination(icon: 'person', label: 'Profile'),
+      ]),
+    );
+    await tester.pump();
+    final updated =
+        harness.calls.lastWhere((c) => c.method == 'setItems').arguments as Map;
+    expect(updated['textTintFlags'], [false, true]);
+    expect(harness.creations, 1);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
   }, variant: TargetPlatformVariant({TargetPlatform.iOS}));

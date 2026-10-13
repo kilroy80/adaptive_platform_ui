@@ -25,6 +25,9 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     private var tabBar: UITabBar?
     private var minimizeBehavior: Int = 3 // automatic
     private var currentLabels: [String] = []
+    private var currentTextTintFlags: [Bool] = []
+    private var defaultSelectedLabelColor: UIColor = .systemBlue
+    private var defaultUnselectedLabelColor: UIColor = .secondaryLabel
     private var currentSymbols: [String] = []
     private var currentSelectedSymbols: [String] = []
     private var currentAssetIcons: [String] = []
@@ -108,6 +111,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         if let dict = args as? [String: Any] {
             NSLog("📦 TabBar init dict keys: \(dict.keys)")
             labels = (dict["labels"] as? [String]) ?? []
+            currentTextTintFlags = (dict["textTintFlags"] as? [Bool]) ?? []
             symbols = (dict["sfSymbols"] as? [String]) ?? []
             selectedSymbols = (dict["selectedSfSymbols"] as? [String]) ?? []
             assetIcons = (dict["assetIcons"] as? [String]) ?? []
@@ -154,6 +158,8 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         // Create single tab bar
         let bar = UITabBar(frame: .zero)
         tabBar = bar
+        defaultSelectedLabelColor = bar.tintColor ?? .systemBlue
+        defaultUnselectedLabelColor = bar.unselectedItemTintColor ?? .secondaryLabel
         bar.delegate = self
         bar.translatesAutoresizingMaskIntoConstraints = false
         let semanticAttribute: UISemanticContentAttribute = isRtl
@@ -508,6 +514,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                     index < states.count && states[index].count == 2 && states[index][1]
                 }
             }
+            self.currentTextTintFlags = (args["textTintFlags"] as? [Bool]) ?? []
             self.currentLabels = labels
             self.currentSymbols = symbols
             self.currentSelectedSymbols = selectedSymbols
@@ -906,7 +913,14 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         return UIColor(red: r, green: g, blue: b, alpha: a)
     }
 
+    private func applyLabelTint(to item: UITabBarItem, index: Int) {
+        let applies = index >= currentTextTintFlags.count || currentTextTintFlags[index]
+        item.setTitleTextAttributes(applies ? nil : [.foregroundColor: defaultSelectedLabelColor], for: .selected)
+        item.setTitleTextAttributes(applies ? nil : [.foregroundColor: defaultUnselectedLabelColor], for: .normal)
+    }
+
     private func applyFlutterImages(to item: UITabBarItem, index: Int) {
+        applyLabelTint(to: item, index: index)
         if let image = flutterIcons[index] { item.image = image }
         if let image = selectedFlutterIcons[index] { item.selectedImage = image }
     }

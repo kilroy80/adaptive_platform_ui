@@ -62,6 +62,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   bool? _lastIsRtl;
   double? _intrinsicHeight;
   List<String>? _lastLabels;
+  List<bool>? _lastTextTintFlags;
   List<String>? _lastSymbols;
   List<String>? _lastSelectedSymbols;
   List<String>? _lastAssetIcons;
@@ -385,6 +386,9 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         'iconRevision': _iconRevision,
         'flutterIconStates': _flutterIconStates,
         'labels': labels,
+        'textTintFlags': widget.destinations
+            .map((d) => d.applyTextTint)
+            .toList(),
         'sfSymbols': symbols,
         'selectedSfSymbols': selectedSymbols,
         'assetIcons': assetIcons,
@@ -462,16 +466,10 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
       backgroundColor: widget.backgroundColor,
       items: [
         for (final d in widget.destinations)
-          BottomNavigationBarItem(
-            icon: d.hasBadge
-                ? d.wrapWithBadge(d.buildIcon(color: widget.unselectedItemTint))
-                : d.buildIcon(color: widget.unselectedItemTint),
-            activeIcon: d.hasBadge
-                ? d.wrapWithBadge(
-                    d.buildIcon(selected: true, color: _effectiveTint),
-                  )
-                : d.buildIcon(selected: true, color: _effectiveTint),
-            label: d.label,
+          d.buildCupertinoItem(
+            context,
+            selectedColor: _effectiveTint,
+            unselectedColor: widget.unselectedItemTint,
           ),
       ],
     );
@@ -550,6 +548,9 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
 
     // Items update (for hot reload or dynamic changes)
     final labels = widget.destinations.map((e) => e.label).toList();
+    final textTintFlags = widget.destinations
+        .map((e) => e.applyTextTint)
+        .toList();
     final symbols = _mapSymbols();
     final selectedSymbols = _mapSelectedSymbols();
     final assetIcons = _mapAssetIcons();
@@ -563,6 +564,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
 
     if (_lastIconRevision != _iconRevision ||
         _lastLabels?.join('|') != labels.join('|') ||
+        !listEquals(_lastTextTintFlags, textTintFlags) ||
         _lastSymbols?.join('|') != symbols.join('|') ||
         _lastSelectedSymbols?.join('|') != selectedSymbols.join('|') ||
         _lastAssetIcons?.join('|') != assetIcons.join('|') ||
@@ -577,6 +579,9 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         'iconRevision': revision,
         'flutterIconStates': _flutterIconStates,
         'labels': labels,
+        'textTintFlags': widget.destinations
+            .map((d) => d.applyTextTint)
+            .toList(),
         'sfSymbols': symbols,
         'selectedSfSymbols': selectedSymbols,
         'assetIcons': assetIcons,
@@ -598,6 +603,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         _queueIconPixels();
       }
       _lastLabels = labels;
+      _lastTextTintFlags = textTintFlags;
       _lastSymbols = symbols;
       _lastSelectedSymbols = selectedSymbols;
       _lastAssetIcons = assetIcons;
@@ -667,6 +673,9 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   void _cacheItems() {
     _lastIconRevision = _iconRevision;
     _lastLabels = widget.destinations.map((e) => e.label).toList();
+    _lastTextTintFlags = widget.destinations
+        .map((e) => e.applyTextTint)
+        .toList();
     _lastSymbols = _mapSymbols();
     _lastSelectedSymbols = _mapSelectedSymbols();
     _lastAssetIcons = _mapAssetIcons();
@@ -706,6 +715,9 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
 
   Future<void> _pushInitialStateToNative(MethodChannel ch) async {
     final labels = widget.destinations.map((e) => e.label).toList();
+    final textTintFlags = widget.destinations
+        .map((e) => e.applyTextTint)
+        .toList();
     final symbols = _mapSymbols();
     final selectedSymbols = _mapSelectedSymbols();
     final assetIcons = _mapAssetIcons();
@@ -723,6 +735,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         'iconRevision': revision,
         'flutterIconStates': _flutterIconStates,
         'labels': labels,
+        'textTintFlags': textTintFlags,
         'sfSymbols': symbols,
         'selectedSfSymbols': selectedSymbols,
         'assetIcons': assetIcons,
