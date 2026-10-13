@@ -882,11 +882,9 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     }
 
     private func applyLiquidGlassLabelAppearance() {
-        guard #available(iOS 26.0, *), let bar = tabBar,
-              let standard = bar.standardAppearance.copy() as? UITabBarAppearance,
-              let scrollEdge = (bar.scrollEdgeAppearance ?? bar.standardAppearance).copy() as? UITabBarAppearance else {
-            return
-        }
+        guard #available(iOS 26.0, *), let bar = tabBar else { return }
+        let standard = bar.standardAppearance.copy()
+        let scrollEdge = (bar.scrollEdgeAppearance ?? bar.standardAppearance).copy()
 
         // A shared normal color belongs in the bar appearance. Individual
         // overrides remain on their UITabBarItem, rather than tinting other tabs.
