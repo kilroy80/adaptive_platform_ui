@@ -216,7 +216,8 @@ void main() {
       expect(find.byType(UiKitView), findsOneWidget);
       expect(find.byType(CupertinoTabBar), findsNothing);
       expect(params!['searchFlags'], [false, true]);
-      expect(params!['textTintFlags'], [true, true]);
+      expect(params!['textColors'], [null, null]);
+      expect(params!['selectedTextColors'], hasLength(2));
       expect(params!['badgeTexts'], ['NEW', null]);
       final images = calls.where((c) => c.method == 'setFlutterIcons').toList();
       expect(images, isNotEmpty);
@@ -448,7 +449,7 @@ void main() {
     await tester.pump();
   }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
-  testWidgets('native label opt-out updates without recreating bar', (
+  testWidgets('native label colors update without recreating bar', (
     tester,
   ) async {
     final harness = NativeBarHarness();
@@ -460,20 +461,23 @@ void main() {
         AdaptiveNavigationDestination(
           icon: 'person',
           label: 'Profile',
-          applyTextTint: false,
+          textColor: Colors.green,
+          selectedTextColor: Colors.green,
         ),
       ]),
     );
     await tester.pump();
     final initial =
         harness.calls.lastWhere((c) => c.method == 'setItems').arguments as Map;
-    expect(initial['textTintFlags'], [true, false]);
+    expect(initial['textColors'], [null, Colors.green.toARGB32()]);
+    expect((initial['selectedTextColors'] as List)[1], Colors.green.toARGB32());
     await tester.pumpWidget(
       harness.build(const [
         AdaptiveNavigationDestination(
           icon: 'house',
           label: 'Home',
-          applyTextTint: false,
+          textColor: Colors.green,
+          selectedTextColor: Colors.green,
         ),
         AdaptiveNavigationDestination(icon: 'person', label: 'Profile'),
       ]),
@@ -481,7 +485,8 @@ void main() {
     await tester.pump();
     final updated =
         harness.calls.lastWhere((c) => c.method == 'setItems').arguments as Map;
-    expect(updated['textTintFlags'], [false, true]);
+    expect(updated['textColors'], [Colors.green.toARGB32(), null]);
+    expect((updated['selectedTextColors'] as List)[0], Colors.green.toARGB32());
     expect(harness.creations, 1);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

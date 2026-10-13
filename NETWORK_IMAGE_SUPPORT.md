@@ -38,9 +38,11 @@ Images keep their original pixels. Ordinary `Icon`/`IconData`/SF Symbols keep
 their normal icon behavior. Flutter's `ImageIcon` is itself a tintable widget;
 use `Image` or `AdaptiveNavigationImage` for full-color pictures.
 
-`applyTextTint` defaults to true and independently applies `selectedItemColor`
-and `unselectedItemColor` to labels. Set it to false to keep platform/theme
-label colors. Existing font sizes and weights are preserved.
+Set `textColor` and `selectedTextColor` on a destination to control its normal
+and selected label colors directly. Unset values fall back to the bottom bar's
+`unselectedItemColor` and `selectedItemColor`, respectively, then platform/theme
+defaults. Existing font sizes and weights are preserved. `applyTextTint` was
+removed; label colors are independent of images and ordinary icon colors.
 
 Migration: `applyImageTint`, `iconPlaceholder`, and `iconErrorWidget` were removed
 from `AdaptiveNavigationDestination`. Move placeholders/errors into the image
@@ -95,11 +97,12 @@ Glass controls. The native capsule itself remains in use.
 
 ## Validation
 
-The complete package suite passed (338 tests). Static analysis of changed Dart
-files and Swift syntax checks also passed.
+The previous image refactor passed the complete package suite (338 tests),
+Dart static analysis and Swift syntax checks. Validation was not run for the
+subsequent textColor/selectedTextColor API change, as requested.
 
 Regression coverage checks decoded image pixels before and after selection,
-independent state placeholders/errors, label tint opt-out, and the native bridge.
+independent state placeholders/errors, per-destination label colors, and the native bridge.
 It also verifies shared-state snapshots, batched changes, no re-upload on
 selection, native-view preservation while hidden, and stale update handling.
 Swift syntax is checked separately. Real-device rendering and performance
@@ -107,16 +110,9 @@ benchmarks are not covered by these tests.
 
 ## Upstream scope
 
-The public destination API adds only `applyTextTint` relative to upstream;
+The public destination API adds `textColor` and `selectedTextColor` relative to upstream;
 images use the existing `icon` and `selectedIcon` widget slots. The public image
 widget reuses the previous image renderer rather than introducing a second
 loading/cache implementation. The native snapshot bridge remains necessary to
 show Flutter-only cached/custom loading UI inside the native Liquid Glass bar.
 Other pre-existing branch changes are outside this refactor.
-
-Compared with the pre-refactor branch, the affected implementation is 103 lines
-smaller (excluding tests/docs). Against upstream/main, the image/text-related
-implementation spans eight source files with 638 net additional lines, including
-the existing 286-line native snapshot bridge. This is not a tiny upstream patch;
-preserving UIKit while rendering arbitrary Flutter loading UI accounts for much
-of the integration. No new package dependency was added.

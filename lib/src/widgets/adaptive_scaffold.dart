@@ -19,7 +19,8 @@ class AdaptiveNavigationDestination {
     required this.icon,
     required this.label,
     this.selectedIcon,
-    this.applyTextTint = true,
+    this.textColor,
+    this.selectedTextColor,
     this.isSearch = false,
     this.badgeCount,
     this.badgeText,
@@ -48,45 +49,39 @@ class AdaptiveNavigationDestination {
   /// when the destination is selected. Falls back to [icon] when null.
   final dynamic selectedIcon;
 
-  /// Apply selectedItemColor and unselectedItemColor to this label.
-  /// Defaults to true. Set to false to keep platform/theme label colors.
-  /// Independent of image rendering. Custom bottom navigation bars are unaffected.
-  final bool applyTextTint;
+  /// Unselected label color. Falls back to the bottom bar's unselectedItemColor,
+  /// then the platform/theme default. Does not affect the icon.
+  final Color? textColor;
 
-  /// Keeps Cupertino label tint independent from icon tint without changing
-  /// the tab bar's layout, selection semantics, or tap handling.
+  /// Selected label color. Falls back to the bottom bar's selectedItemColor,
+  /// then the platform/theme default. Does not affect the icon.
+  final Color? selectedTextColor;
+
   BottomNavigationBarItem buildCupertinoItem(
     BuildContext context, {
     Color? selectedColor,
     Color? unselectedColor,
   }) {
-    Widget build(bool selected) {
-      var child = buildIcon(
-        selected: selected,
-        color: selected ? selectedColor : unselectedColor,
-      );
-      if (hasBadge) child = wrapWithBadge(child);
-      if (applyTextTint) return child;
-      final color = selected
-          ? CupertinoTheme.of(context).primaryColor
-          : CupertinoColors.inactiveGray;
-      return Column(
-        children: [
-          Expanded(child: Center(child: child)),
-          Text(
-            label,
-            style: TextStyle(
-              color: CupertinoDynamicColor.resolve(color, context),
-            ),
-          ),
-        ],
-      );
+    var normalIcon = buildIcon(color: unselectedColor);
+    var activeIcon = buildIcon(selected: true, color: selectedColor);
+    if (hasBadge) {
+      normalIcon = wrapWithBadge(normalIcon);
+      activeIcon = wrapWithBadge(activeIcon);
     }
-
+    if (textColor == null && selectedTextColor == null) {
+      return BottomNavigationBarItem(icon: normalIcon, activeIcon: activeIcon, label: label);
+    }
+    final normalLabelColor = textColor ?? unselectedColor ?? CupertinoColors.inactiveGray;
+    final selectedLabelColor = selectedTextColor ?? selectedColor ?? CupertinoTheme.of(context).primaryColor;
     return BottomNavigationBarItem(
-      icon: build(false),
-      activeIcon: build(true),
-      label: applyTextTint ? label : null,
+      icon: Column(children: [
+        Expanded(child: Center(child: normalIcon)),
+        Text(label, style: TextStyle(color: CupertinoDynamicColor.resolve(normalLabelColor, context))),
+      ]),
+      activeIcon: Column(children: [
+        Expanded(child: Center(child: activeIcon)),
+        Text(label, style: TextStyle(color: CupertinoDynamicColor.resolve(selectedLabelColor, context))),
+      ]),
     );
   }
 
@@ -996,9 +991,9 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
               label: dest.label,
             );
             final bar = widget.bottomNavigationBar!;
-            if (!dest.applyTextTint ||
-                (bar.selectedItemColor == null &&
-                    bar.unselectedItemColor == null)) {
+            final normalTextColor = dest.textColor ?? bar.unselectedItemColor;
+            final activeTextColor = dest.selectedTextColor ?? bar.selectedItemColor;
+            if (normalTextColor == null && activeTextColor == null) {
               return destination;
             }
             final theme = Theme.of(context);
@@ -1011,8 +1006,8 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
                   );
                   if (states.contains(WidgetState.disabled)) return original;
                   final color = states.contains(WidgetState.selected)
-                      ? bar.selectedItemColor
-                      : bar.unselectedItemColor;
+                      ? activeTextColor
+                      : normalTextColor;
                   if (color == null) return original;
                   final style =
                       original ??

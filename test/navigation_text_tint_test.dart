@@ -9,10 +9,10 @@ TextStyle labelStyle(WidgetTester tester, String label) =>
 
 void main() {
   testWidgets(
-    'Android label tint follows selection and opt-out preserves theme',
+    'Android label colors override bar colors and preserve typography',
     (tester) async {
       var selected = 0;
-      var applyTint = false;
+      var labelColor = Colors.green;
       var selectedColor = Colors.red;
       late StateSetter update;
       final themedLabels = WidgetStateProperty.resolveWith<TextStyle?>(
@@ -49,7 +49,8 @@ void main() {
                     AdaptiveNavigationDestination(
                       icon: Icons.person,
                       label: 'Theme',
-                      applyTextTint: applyTint,
+                      textColor: Colors.orange,
+                      selectedTextColor: labelColor,
                     ),
                   ],
                 ),
@@ -68,7 +69,7 @@ void main() {
       expect(labelStyle(tester, 'Tinted').color, Colors.blue);
       expect(labelStyle(tester, 'Theme').color, Colors.green);
       update(() {
-        applyTint = true;
+        labelColor = Colors.purple;
         selectedColor = Colors.purple;
       });
       await tester.pumpAndSettle();
@@ -127,7 +128,7 @@ void main() {
     }
   });
 
-  testWidgets('Cupertino labels opt out independently of icon colors', (
+  testWidgets('Cupertino label colors override bar colors independently of icons', (
     tester,
   ) async {
     var selected = 0;
@@ -150,7 +151,8 @@ void main() {
                   AdaptiveNavigationDestination(
                     icon: Icons.person,
                     label: 'Theme',
-                    applyTextTint: false,
+                    textColor: CupertinoColors.inactiveGray,
+                    selectedTextColor: Colors.green,
                   ),
                 ],
               ),
