@@ -105,16 +105,12 @@ Glass controls. The native capsule itself remains in use.
 
 ## Validation
 
-The previous image refactor passed the complete package suite (338 tests),
-Dart static analysis and Swift syntax checks. Validation was not run for the
-subsequent label-color and image-size/clipping API changes, as requested.
-
-Regression coverage checks decoded image pixels before and after selection,
-independent state placeholders/errors, per-destination label colors, and the native bridge.
-It also verifies shared-state snapshots, batched changes, no re-upload on
-selection, native-view preservation while hidden, and stale update handling.
-Swift syntax is checked separately. Real-device rendering and performance
-benchmarks are not covered by these tests.
+The navigation rendering refactor passed all 339 package tests, including the
+branch-specific image, label-color, and native snapshot regression tests, before
+those three added test files were removed to minimize differences from upstream.
+The original upstream tests remain in the repository. Dart static analysis also
+passed. Real-device rendering and performance benchmarks are not covered by
+these checks.
 
 ## Upstream scope
 

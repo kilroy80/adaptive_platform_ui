@@ -84,8 +84,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   TabBarMinimizeBehavior? _lastMinimizeBehavior;
   bool? _lastHidden;
 
-  bool get _isDark =>
-      CupertinoTheme.brightnessOf(context) == Brightness.dark;
+  bool get _isDark => CupertinoTheme.brightnessOf(context) == Brightness.dark;
   bool get _isRtl => Directionality.of(context) == TextDirection.rtl;
   Color? get _effectiveTint =>
       widget.tint ?? CupertinoTheme.of(context).primaryColor;
@@ -517,6 +516,23 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
     return null;
   }
 
+  void _addTextColorsToStyle(Map<String, dynamic> style) {
+    final selectedTextColor = widget.selectedTextColor == null
+        ? null
+        : _colorToARGB(widget.selectedTextColor!);
+    final unselectedTextColor = widget.unselectedTextColor == null
+        ? null
+        : _colorToARGB(widget.unselectedTextColor!);
+    if (_lastSelectedTextColor != selectedTextColor) {
+      style['selectedTextColor'] = selectedTextColor;
+      _lastSelectedTextColor = selectedTextColor;
+    }
+    if (_lastUnselectedTextColor != unselectedTextColor) {
+      style['unselectedTextColor'] = unselectedTextColor;
+      _lastUnselectedTextColor = unselectedTextColor;
+    }
+  }
+
   Future<void> _syncPropsToNativeIfNeeded() async {
     final ch = _channel;
     if (ch == null) return;
@@ -536,20 +552,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
     }
 
     final style = <String, dynamic>{};
-    final selectedTextColor = widget.selectedTextColor == null
-        ? null
-        : _colorToARGB(widget.selectedTextColor!);
-    final unselectedTextColor = widget.unselectedTextColor == null
-        ? null
-        : _colorToARGB(widget.unselectedTextColor!);
-    if (_lastSelectedTextColor != selectedTextColor) {
-      style['selectedTextColor'] = selectedTextColor;
-      _lastSelectedTextColor = selectedTextColor;
-    }
-    if (_lastUnselectedTextColor != unselectedTextColor) {
-      style['unselectedTextColor'] = unselectedTextColor;
-      _lastUnselectedTextColor = unselectedTextColor;
-    }
+    _addTextColorsToStyle(style);
 
     if (_lastTint != tint && tint != null) {
       style['tint'] = tint;
@@ -764,20 +767,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         _queueIconPixels();
       }
       final style = <String, dynamic>{};
-      final selectedTextColor = widget.selectedTextColor == null
-          ? null
-          : _colorToARGB(widget.selectedTextColor!);
-      final unselectedTextColor = widget.unselectedTextColor == null
-          ? null
-          : _colorToARGB(widget.unselectedTextColor!);
-      if (_lastSelectedTextColor != selectedTextColor) {
-        style['selectedTextColor'] = selectedTextColor;
-        _lastSelectedTextColor = selectedTextColor;
-      }
-      if (_lastUnselectedTextColor != unselectedTextColor) {
-        style['unselectedTextColor'] = unselectedTextColor;
-        _lastUnselectedTextColor = unselectedTextColor;
-      }
+      _addTextColorsToStyle(style);
 
       if (_effectiveTint != null) {
         style['tint'] = _colorToARGB(_effectiveTint!);

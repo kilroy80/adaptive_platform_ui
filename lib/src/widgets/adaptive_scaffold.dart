@@ -13,6 +13,8 @@ import 'ios26/ios26_scaffold.dart';
 import '../toolbar/toolbar_chrome_scope.dart';
 import '../toolbar/toolbar_registry.dart';
 
+part 'adaptive_navigation_rendering.dart';
+
 /// Navigation destination for bottom navigation
 class AdaptiveNavigationDestination {
   const AdaptiveNavigationDestination({
@@ -53,53 +55,14 @@ class AdaptiveNavigationDestination {
     Color? unselectedColor,
     Color? selectedTextColor,
     Color? unselectedTextColor,
-  }) {
-    var normalIcon = buildIcon(color: unselectedColor);
-    var activeIcon = buildIcon(selected: true, color: selectedColor);
-    if (hasBadge) {
-      normalIcon = wrapWithBadge(normalIcon);
-      activeIcon = wrapWithBadge(activeIcon);
-    }
-    if (selectedTextColor != null || unselectedTextColor != null) {
-      final normalColor =
-          unselectedTextColor ??
-          unselectedColor ??
-          CupertinoColors.inactiveGray;
-      final activeColor =
-          selectedTextColor ??
-          selectedColor ??
-          CupertinoTheme.of(context).primaryColor;
-      return BottomNavigationBarItem(
-        icon: Column(
-          children: [
-            Expanded(child: Center(child: normalIcon)),
-            Text(
-              label,
-              style: TextStyle(
-                color: CupertinoDynamicColor.resolve(normalColor, context),
-              ),
-            ),
-          ],
-        ),
-        activeIcon: Column(
-          children: [
-            Expanded(child: Center(child: activeIcon)),
-            Text(
-              label,
-              style: TextStyle(
-                color: CupertinoDynamicColor.resolve(activeColor, context),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return BottomNavigationBarItem(
-      icon: normalIcon,
-      activeIcon: activeIcon,
-      label: label,
-    );
-  }
+  }) => _buildCupertinoNavigationItem(
+    this,
+    context,
+    selectedColor: selectedColor,
+    unselectedColor: unselectedColor,
+    selectedTextColor: selectedTextColor,
+    unselectedTextColor: unselectedTextColor,
+  );
 
   /// Whether an icon needs Flutter pixels for the native iOS tab bar.
   bool get requiresFlutterIcon =>
@@ -122,56 +85,12 @@ class AdaptiveNavigationDestination {
     bool selected = false,
     Color? color,
     TargetPlatform platform = TargetPlatform.iOS,
-  }) {
-    final value = selected ? selectedIcon ?? icon : icon;
-    if (value is Icon) {
-      return color == null
-          ? value
-          : IconTheme.merge(
-              data: IconThemeData(color: color),
-              child: value,
-            );
-    }
-    if (value is Widget) return value;
-    if (value is ImageProvider) return AdaptiveNavigationImage(image: value);
-    if (value is IconData) return Icon(value, color: color);
-    if (value is String) {
-      return Icon(
-        platform == TargetPlatform.iOS
-            ? _sfSymbolToCupertinoIcon(value)
-            : Icons.circle,
-        color: color,
-      );
-    }
-    return const Icon(CupertinoIcons.circle);
-  }
-
-  static IconData _sfSymbolToCupertinoIcon(String sfSymbol) {
-    const iconMap = {
-      'house': CupertinoIcons.house,
-      'house.fill': CupertinoIcons.house_fill,
-      'magnifyingglass': CupertinoIcons.search,
-      'heart': CupertinoIcons.heart,
-      'heart.fill': CupertinoIcons.heart_fill,
-      'person': CupertinoIcons.person,
-      'person.fill': CupertinoIcons.person_fill,
-      'gear': CupertinoIcons.settings,
-      'star': CupertinoIcons.star,
-      'star.fill': CupertinoIcons.star_fill,
-      'bell': CupertinoIcons.bell,
-      'bell.fill': CupertinoIcons.bell_fill,
-      'bag': CupertinoIcons.bag,
-      'bag.fill': CupertinoIcons.bag_fill,
-      'bookmark': CupertinoIcons.bookmark,
-      'bookmark.fill': CupertinoIcons.bookmark_fill,
-      'info.circle': CupertinoIcons.info_circle,
-      'info.circle.fill': CupertinoIcons.info_circle_fill,
-      'plus.circle': CupertinoIcons.add_circled,
-      'plus': CupertinoIcons.add,
-      'checkmark.circle': CupertinoIcons.checkmark_circle,
-    };
-    return iconMap[sfSymbol] ?? CupertinoIcons.circle;
-  }
+  }) => _buildNavigationIconWidget(
+    this,
+    selected: selected,
+    color: color,
+    platform: platform,
+  );
 
   /// Whether this is a search tab (iOS 26+)
   /// Search tabs are visually separated and transform into a search field
@@ -1013,39 +932,39 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
               selectedIcon: selectedIconWidget,
               label: dest.label,
             );
-            final bar = widget.bottomNavigationBar!;
-            final normalTextColor =
-                bar.unselectedTextColor ?? bar.unselectedItemColor;
-            final activeTextColor =
-                bar.selectedTextColor ?? bar.selectedItemColor;
-            if (normalTextColor == null && activeTextColor == null) {
-              return destination;
-            }
-            final theme = Theme.of(context);
-            final navigationTheme = NavigationBarTheme.of(context);
-            return NavigationBarTheme(
-              data: navigationTheme.copyWith(
-                labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                  final original = navigationTheme.labelTextStyle?.resolve(
-                    states,
-                  );
-                  if (states.contains(WidgetState.disabled)) return original;
-                  final color = states.contains(WidgetState.selected)
-                      ? activeTextColor
-                      : normalTextColor;
-                  if (color == null) return original;
-                  final style =
-                      original ??
-                      (theme.useMaterial3
-                          ? theme.textTheme.labelMedium
-                          : theme.textTheme.labelSmall);
-                  return (style ?? const TextStyle()).copyWith(color: color);
-                }),
-              ),
-              child: destination,
-            );
+            return destination;
           }).toList(),
         );
+        final bar = widget.bottomNavigationBar!;
+        final normalTextColor =
+            bar.unselectedTextColor ?? bar.unselectedItemColor;
+        final activeTextColor = bar.selectedTextColor ?? bar.selectedItemColor;
+
+        if (normalTextColor != null || activeTextColor != null) {
+          final theme = Theme.of(context);
+          final navigationTheme = NavigationBarTheme.of(context);
+          bottomNavBar = NavigationBarTheme(
+            data: navigationTheme.copyWith(
+              labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                final original = navigationTheme.labelTextStyle?.resolve(
+                  states,
+                );
+                if (states.contains(WidgetState.disabled)) return original;
+                final color = states.contains(WidgetState.selected)
+                    ? activeTextColor
+                    : normalTextColor;
+                if (color == null) return original;
+                final style =
+                    original ??
+                    (theme.useMaterial3
+                        ? theme.textTheme.labelMedium
+                        : theme.textTheme.labelSmall);
+                return (style ?? const TextStyle()).copyWith(color: color);
+              }),
+            ),
+            child: bottomNavBar,
+          );
+        }
       }
 
       return Scaffold(
