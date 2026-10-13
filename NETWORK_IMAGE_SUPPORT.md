@@ -27,8 +27,10 @@ AdaptiveNavigationDestination(
 
 Omit `selectedIcon` to reuse `icon`. Plain `ImageProvider` values and complete
 `Image`/`CachedNetworkImage` widgets remain supported. A complete widget manages
-its own sizing and loading UI. `AdaptiveNavigationImage` retains the existing
-26 × 26 round-avatar layout. Switching providers resets the inner image state
+its own sizing and loading UI. `AdaptiveNavigationImage` defaults to a 26 × 26 round-avatar layout.
+Set `size` to adjust its square bounds and `clipOval: false` to disable circular
+clipping. The native snapshot also uses the configured size when this widget
+is supplied directly as `icon` or `selectedIcon`. Switching providers resets the inner image state
 so one state's error cannot leak into another state's pending download.
 
 For caching, pass `CachedNetworkImageProvider(url)` as `image`; the application
@@ -53,7 +55,7 @@ widget and choose separate `icon`/`selectedIcon` pixels instead of image tint.
 On iOS 26 and above, the native `UITabBar` remains mounted, preserving Liquid
 Glass, native minimization, badges, tap handling, and search-tab configuration.
 Custom providers and widgets render in an invisible Flutter paint layer. The
-26 × 26 logical-pixel bitmap is sent to the native item's normal/selected images
+icon-sized logical-pixel bitmap is sent to the native item's normal/selected images
 at the current device pixel ratio. The native side creates a `CGImage` directly
 from premultiplied RGBA, with no PNG encoding, PNG decoding, or extra resizing.
 
@@ -99,7 +101,7 @@ Glass controls. The native capsule itself remains in use.
 
 The previous image refactor passed the complete package suite (338 tests),
 Dart static analysis and Swift syntax checks. Validation was not run for the
-subsequent textColor/selectedTextColor API change, as requested.
+subsequent label-color and image-size/clipping API changes, as requested.
 
 Regression coverage checks decoded image pixels before and after selection,
 independent state placeholders/errors, per-destination label colors, and the native bridge.

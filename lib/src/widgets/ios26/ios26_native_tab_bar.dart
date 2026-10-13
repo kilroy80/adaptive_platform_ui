@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import '../adaptive_scaffold.dart';
+import '../adaptive_navigation_image.dart';
 import 'native_icon_snapshot.dart';
 
 /// Native iOS 26 tab bar using UITabBar platform view
@@ -305,40 +306,47 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
 
   Widget _withIconSnapshots(Widget nativeBar) {
     final revision = _iconRevision;
-    return Stack(
-      children: [
-        nativeBar,
-        if (!widget.hidden)
-          for (var i = 0; i < widget.destinations.length; i++)
-            for (final selected in [false, true])
-              if (widget.destinations[i].requiresFlutterIconFor(selected) &&
-                  (!selected || !_sharesIcon(i)))
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  width: 26,
-                  height: 26,
-                  child: NativeIconSnapshot(
-                    key: ValueKey((i, selected)),
-                    onPixels: (pixels) {
-                      if (!mounted || revision != _iconRevision) return;
-                      final cached = _iconPixels[(i, selected)];
-                      if (cached != null &&
-                          cached.width == pixels.width &&
-                          cached.height == pixels.height &&
-                          cached.scale == pixels.scale &&
-                          listEquals(cached.rgba, pixels.rgba)) {
-                        return;
-                      }
-                      _iconPixels[(i, selected)] = pixels;
-                      _dirtyIconPixels.add((i, selected));
-                      _queueIconPixels();
-                    },
-                    child: widget.destinations[i].buildIcon(selected: selected),
-                  ),
-                ),
-      ],
-    );
+    final snapshots = <Widget>[];
+    if (!widget.hidden) {
+      for (var i = 0; i < widget.destinations.length; i++) {
+        final destination = widget.destinations[i];
+        for (final selected in [false, true]) {
+          if (!destination.requiresFlutterIconFor(selected) ||
+              (selected && _sharesIcon(i))) {
+            continue;
+          }
+          final icon = selected
+              ? destination.selectedIcon ?? destination.icon
+              : destination.icon;
+          final size = icon is AdaptiveNavigationImage ? icon.size : 26.0;
+          snapshots.add(Positioned(
+            left: 0,
+            top: 0,
+            width: size,
+            height: size,
+            child: NativeIconSnapshot(
+              key: ValueKey((i, selected)),
+              onPixels: (pixels) {
+                if (!mounted || revision != _iconRevision) return;
+                final cached = _iconPixels[(i, selected)];
+                if (cached != null &&
+                    cached.width == pixels.width &&
+                    cached.height == pixels.height &&
+                    cached.scale == pixels.scale &&
+                    listEquals(cached.rgba, pixels.rgba)) {
+                  return;
+                }
+                _iconPixels[(i, selected)] = pixels;
+                _dirtyIconPixels.add((i, selected));
+                _queueIconPixels();
+              },
+              child: destination.buildIcon(selected: selected),
+            ),
+          ));
+        }
+      }
+    }
+    return Stack(children: [nativeBar, ...snapshots]);
   }
 
   // Native badge styling: badge content + colors mapped to the
