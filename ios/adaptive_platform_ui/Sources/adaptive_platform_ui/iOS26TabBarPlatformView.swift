@@ -175,9 +175,9 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         }
         container.semanticContentAttribute = semanticAttribute
 
-        // iOS 26+ special handling - Skip appearance, use direct properties only
+        // Preserve the native iOS 26 glass background; configure label appearance separately.
         if #available(iOS 26.0, *) {
-            // For iOS 26, we skip UITabBarAppearance as it interferes with custom colors
+            // Do not replace the native background effect with a transparent appearance.
             bar.isTranslucent = true
             bar.backgroundImage = UIImage()
             bar.shadowImage = UIImage()
@@ -349,6 +349,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
         if selectedIndex >= 0, let items = bar.items, selectedIndex < items.count {
             bar.selectedItem = items[selectedIndex]
+            applyLiquidGlassLabelAppearance()
         }
 
         container.addSubview(bar)
@@ -633,6 +634,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 bar.items = buildItems(0..<count)
                 if let items = bar.items, selectedIndex >= 0, selectedIndex < items.count {
                     bar.selectedItem = items[selectedIndex]
+                    applyLiquidGlassLabelAppearance()
                 }
             }
             result(nil)
@@ -646,6 +648,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
             if let bar = self.tabBar, let items = bar.items, idx >= 0, idx < items.count {
                 bar.selectedItem = items[idx]
+                applyLiquidGlassLabelAppearance()
             }
             result(nil)
 
@@ -681,6 +684,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 let c = Self.colorFromARGB(n.intValue)
                 self.tabBar?.barTintColor = c
             }
+            applyLiquidGlassLabelAppearance()
 
             result(nil)
 
@@ -856,6 +860,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         bar.items = items
         if currentSelectedIndex < items.count {
             bar.selectedItem = items[currentSelectedIndex]
+            applyLiquidGlassLabelAppearance()
         }
     }
 
@@ -863,6 +868,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
     func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
         if let bar = self.tabBar, bar === tabBar, let items = bar.items, let idx = items.firstIndex(of: item) {
+            applyLiquidGlassLabelAppearance()
             channel.invokeMethod("valueChanged", arguments: ["index": idx])
         }
     }
@@ -873,6 +879,44 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         let g = CGFloat((argb >> 8) & 0xFF) / 255.0
         let b = CGFloat(argb & 0xFF) / 255.0
         return UIColor(red: r, green: g, blue: b, alpha: a)
+    }
+
+    private func applyLiquidGlassLabelAppearance() {
+        guard #available(iOS 26.0, *), let bar = tabBar,
+              let standard = bar.standardAppearance.copy() as? UITabBarAppearance,
+              let scrollEdge = (bar.scrollEdgeAppearance ?? bar.standardAppearance).copy() as? UITabBarAppearance else {
+            return
+        }
+
+        // A shared normal color belongs in the bar appearance. Individual
+        // overrides remain on their UITabBarItem, rather than tinting other tabs.
+        let normalColor: UIColor?
+        if let first = currentTextColors.first ?? nil,
+           currentTextColors.allSatisfy({ $0 == first }) {
+            normalColor = first
+        } else {
+            normalColor = bar.unselectedItemTintColor
+        }
+        let selectedIndex = bar.selectedItem.flatMap { bar.items?.firstIndex(of: $0) } ?? 0
+        let selectedColor = (selectedIndex < currentSelectedTextColors.count
+            ? currentSelectedTextColors[selectedIndex] : nil) ?? bar.tintColor
+
+        // Copy the current appearances and change only foreground colors.
+        // Keep UIKit's background effect, fonts, icon colors, and badge styling.
+        for appearance in [standard, scrollEdge] {
+            for layout in [appearance.stackedLayoutAppearance,
+                           appearance.inlineLayoutAppearance,
+                           appearance.compactInlineLayoutAppearance] {
+                var normalAttributes = layout.normal.titleTextAttributes
+                normalAttributes[.foregroundColor] = normalColor
+                layout.normal.titleTextAttributes = normalAttributes
+                var selectedAttributes = layout.selected.titleTextAttributes
+                selectedAttributes[.foregroundColor] = selectedColor
+                layout.selected.titleTextAttributes = selectedAttributes
+            }
+        }
+        bar.standardAppearance = standard
+        bar.scrollEdgeAppearance = scrollEdge
     }
 
     private func applyLabelTint(to item: UITabBarItem, index: Int) {
