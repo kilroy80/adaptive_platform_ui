@@ -1,8 +1,12 @@
 import 'package:flutter/cupertino.dart';
 
-/// Shared avatar renderer for arbitrary providers, including cached providers.
-class NavigationImageIcon extends StatelessWidget {
-  const NavigationImageIcon({
+/// Navigation image with its own loading and error widgets.
+///
+/// Use as icon or selectedIcon of AdaptiveNavigationDestination. Accepts any
+/// ImageProvider, including CachedNetworkImageProvider. Pixels keep their
+/// original colors; selection and text colors do not tint this widget.
+class AdaptiveNavigationImage extends StatelessWidget {
+  const AdaptiveNavigationImage({
     super.key,
     required this.image,
     this.placeholder,
@@ -19,6 +23,8 @@ class NavigationImageIcon extends StatelessWidget {
     height: 26,
     child: ClipOval(
       child: Image(
+        // A different source must not inherit the previous source's error state.
+        key: ValueKey(image),
         image: image,
         fit: BoxFit.cover,
         frameBuilder: (context, child, frame, synchronouslyLoaded) =>

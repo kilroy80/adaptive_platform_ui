@@ -194,14 +194,12 @@ void main() {
             bottomNavigationBar: IOS26NativeTabBar(
               destinations: const [
                 AdaptiveNavigationDestination(
-                  applyImageTint: false,
                   icon: ColoredBox(color: Colors.red),
                   selectedIcon: ColoredBox(color: Colors.blue),
                   label: 'Profile',
                   badgeText: 'NEW',
                 ),
                 AdaptiveNavigationDestination(
-                  applyImageTint: false,
                   icon: 'magnifyingglass',
                   label: 'Search',
                   isSearch: true,
@@ -228,19 +226,18 @@ void main() {
         containsAll([false, true]),
       );
       expect(icons.every((i) => (i as Map)['bytes'] is Uint8List), isTrue);
+      expect(icons.every((i) => (i as Map)['template'] == false), isTrue);
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             bottomNavigationBar: IOS26NativeTabBar(
               destinations: const [
                 AdaptiveNavigationDestination(
-                  applyImageTint: false,
                   icon: ColoredBox(color: Colors.green),
                   selectedIcon: 'heart',
                   label: 'Profile',
                 ),
                 AdaptiveNavigationDestination(
-                  applyImageTint: false,
                   icon: 'magnifyingglass',
                   label: 'Search',
                   isSearch: true,
@@ -280,12 +277,10 @@ void main() {
       addTearDown(harness.dispose);
       const initial = [
         AdaptiveNavigationDestination(
-          applyImageTint: false,
           icon: ColoredBox(color: Colors.red),
           label: 'One',
         ),
         AdaptiveNavigationDestination(
-          applyImageTint: false,
           icon: ColoredBox(color: Colors.blue),
           label: 'Two',
         ),
@@ -307,12 +302,10 @@ void main() {
       final oldBar = tester.widget<UiKitView>(find.byType(UiKitView));
       const changed = [
         AdaptiveNavigationDestination(
-          applyImageTint: false,
           icon: ColoredBox(color: Colors.green),
           label: 'One',
         ),
         AdaptiveNavigationDestination(
-          applyImageTint: false,
           icon: ColoredBox(color: Colors.blue),
           label: 'Two',
         ),
@@ -375,12 +368,10 @@ void main() {
     addTearDown(harness.dispose);
     const initial = [
       AdaptiveNavigationDestination(
-        applyImageTint: false,
         icon: ColoredBox(color: Colors.red),
         label: 'One',
       ),
       AdaptiveNavigationDestination(
-        applyImageTint: false,
         icon: ColoredBox(color: Colors.blue),
         label: 'Two',
       ),
@@ -399,12 +390,10 @@ void main() {
     await tester.pumpWidget(
       harness.build(const [
         AdaptiveNavigationDestination(
-          applyImageTint: false,
           icon: ColoredBox(color: Colors.green),
           label: 'One',
         ),
         AdaptiveNavigationDestination(
-          applyImageTint: false,
           icon: ColoredBox(color: Colors.blue),
           label: 'Two',
         ),
@@ -425,6 +414,40 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
   }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
+  testWidgets('native ordinary icons use tint while widgets preserve pixels', (
+    tester,
+  ) async {
+    final harness = NativeBarHarness();
+    harness.install();
+    addTearDown(harness.dispose);
+    await tester.pumpWidget(
+      harness.build(const [
+        AdaptiveNavigationDestination(icon: Icons.home, label: 'Home'),
+        AdaptiveNavigationDestination(
+          icon: Icon(Icons.person, color: Colors.green),
+          label: 'Profile',
+        ),
+      ]),
+    );
+    await encodeFrame(tester);
+    await encodeFrame(tester);
+    final images = harness.iconUpdates
+        .expand((update) => update['icons'] as List)
+        .cast<Map>();
+    expect(
+      images.where((image) => image['index'] == 0).last['template'],
+      isTrue,
+    );
+    expect(
+      images.where((image) => image['index'] == 1).last['template'],
+      isFalse,
+    );
+    expect(images.every((image) => image['both'] == true), isTrue);
+    expect(find.byType(NativeIconSnapshot), findsNWidgets(2));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
+
   testWidgets('native label opt-out updates without recreating bar', (
     tester,
   ) async {

@@ -159,30 +159,21 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   }
 
   /// Extract asset path from an icon value.
-  /// Supports AssetImage, ImageIcon(AssetImage), and string paths containing '/'.
+  /// Supports AssetImage and string paths containing '/'.
   /// Returns empty string for SF Symbols or other icon types.
   String _extractAssetPath(Object? icon) {
     if (icon is AssetImage) return icon.assetName;
-    if (icon is ImageIcon && icon.image is AssetImage) {
-      return (icon.image as AssetImage).assetName;
-    }
     if (icon is String && icon.contains('/')) return icon;
     return '';
   }
 
   String _extractFilePath(Object? icon) {
     if (icon is FileImage) return icon.file.path;
-    if (icon is ImageIcon && icon.image is FileImage) {
-      return (icon.image as FileImage).file.path;
-    }
     return '';
   }
 
   String _extractNetworkUrl(Object? icon) {
     if (icon is NetworkImage) return icon.url;
-    if (icon is ImageIcon && icon.image is NetworkImage) {
-      return (icon.image as NetworkImage).url;
-    }
     return '';
   }
 
@@ -211,19 +202,21 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   ) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
-      if (a[i].icon != b[i].icon ||
-          a[i].selectedIcon != b[i].selectedIcon ||
-          a[i].iconPlaceholder != b[i].iconPlaceholder ||
-          a[i].iconErrorWidget != b[i].iconErrorWidget ||
-          a[i].applyImageTint != b[i].applyImageTint) {
+      if (a[i].icon != b[i].icon || a[i].selectedIcon != b[i].selectedIcon) {
         return false;
       }
     }
     return true;
   }
 
+  // Ordinary Flutter icons use UIKit tint; image/widget pixels stay original.
+  bool _usesNativeTemplate(int index, bool selected) {
+    final d = widget.destinations[index];
+    final icon = selected ? d.selectedIcon ?? d.icon : d.icon;
+    return icon is IconData || (icon is Icon && icon.color == null);
+  }
+
   bool _sharesDestinationIcon(AdaptiveNavigationDestination d) =>
-      !d.applyImageTint &&
       d.requiresFlutterIconFor(false) &&
       d.requiresFlutterIconFor(true) &&
       (d.selectedIcon == null || d.selectedIcon == d.icon);
@@ -273,6 +266,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
               {
                 'index': key.$1,
                 'selected': key.$2,
+                'template': _usesNativeTemplate(key.$1, key.$2),
                 'both': !key.$2 && _sharesIcon(key.$1),
                 'bytes': _iconPixels[key]!.rgba,
                 'width': _iconPixels[key]!.width,
@@ -329,15 +323,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
                       _dirtyIconPixels.add((i, selected));
                       _queueIconPixels();
                     },
-                    child: widget.destinations[i].buildIcon(
-                      selected: selected,
-                      color: widget.destinations[i].applyImageTint
-                          ? (selected
-                                ? _effectiveTint
-                                : widget.unselectedItemTint ??
-                                      CupertinoColors.inactiveGray)
-                          : null,
-                    ),
+                    child: widget.destinations[i].buildIcon(selected: selected),
                   ),
                 ),
       ],

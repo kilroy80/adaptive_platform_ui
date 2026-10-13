@@ -58,6 +58,7 @@ export 'src/widgets/adaptive_alert_dialog.dart';
 export 'src/widgets/adaptive_popup_menu_button.dart';
 export 'src/widgets/adaptive_context_menu.dart';
 export 'src/widgets/adaptive_scaffold.dart';
+export 'src/widgets/adaptive_navigation_image.dart';
 export 'src/widgets/adaptive_app_bar_action.dart';
 export 'src/widgets/adaptive_snackbar.dart';
 export 'src/widgets/adaptive_date_picker.dart';

@@ -8,7 +8,7 @@ import 'adaptive_app_bar.dart';
 import 'adaptive_badge.dart';
 import 'adaptive_bottom_navigation_bar.dart';
 import 'adaptive_button.dart';
-import 'navigation_image_icon.dart';
+import 'adaptive_navigation_image.dart';
 import 'ios26/ios26_scaffold.dart';
 import '../toolbar/toolbar_chrome_scope.dart';
 import '../toolbar/toolbar_registry.dart';
@@ -19,9 +19,6 @@ class AdaptiveNavigationDestination {
     required this.icon,
     required this.label,
     this.selectedIcon,
-    this.iconPlaceholder,
-    this.iconErrorWidget,
-    this.applyImageTint = true,
     this.applyTextTint = true,
     this.isSearch = false,
     this.badgeCount,
@@ -51,22 +48,9 @@ class AdaptiveNavigationDestination {
   /// when the destination is selected. Falls back to [icon] when null.
   final dynamic selectedIcon;
 
-  /// Widget shown while an image provider is loading, for either icon state.
-  /// Can be an Image.asset, Image, Icon, or any other widget.
-  final Widget? iconPlaceholder;
-
-  /// Widget shown when an image provider fails to load.
-  /// Defaults to a person avatar icon.
-  final Widget? iconErrorWidget;
-
-  /// Apply navigation item colors to image providers and custom image widgets.
-  /// Defaults to true. Set to false to preserve original image colors.
-  /// Does not affect Icon/IconData or SF Symbols. Applies to both icon states.
-  final bool applyImageTint;
-
   /// Apply selectedItemColor and unselectedItemColor to this label.
   /// Defaults to true. Set to false to keep platform/theme label colors.
-  /// Independent of applyImageTint. Custom bottom navigation bars are unaffected.
+  /// Independent of image rendering. Custom bottom navigation bars are unaffected.
   final bool applyTextTint;
 
   /// Keeps Cupertino label tint independent from icon tint without changing
@@ -106,83 +90,46 @@ class AdaptiveNavigationDestination {
     );
   }
 
-  bool _isImage(Object? value) =>
-      value is ImageProvider || (value is Widget && value is! Icon);
-
-  /// Whether either icon needs Flutter rendering before being sent to UIKit.
+  /// Whether an icon needs Flutter pixels for the native iOS tab bar.
   bool get requiresFlutterIcon =>
       requiresFlutterIconFor(false) || requiresFlutterIconFor(true);
 
-  /// UIKit receives rendered pixels for custom providers and widgets, keeping
-  /// the native Liquid Glass tab bar and its behaviors intact.
   bool requiresFlutterIconFor(bool selected) {
     final value = selected ? selectedIcon ?? icon : icon;
-    final isImage = value is ImageProvider || value is ImageIcon;
-    return (isImage &&
-            (applyImageTint ||
-                value is AssetImage ||
-                value is ImageIcon ||
-                iconPlaceholder != null ||
-                iconErrorWidget != null)) ||
-        _requiresFlutterIcon(value);
+    return value is Widget ||
+        value is IconData ||
+        (value is NetworkImage && value.headers != null) ||
+        (value is AssetImage && value.package != null) ||
+        (value is ImageProvider &&
+            value is! AssetImage &&
+            value is! FileImage &&
+            value is! NetworkImage);
   }
 
-  static bool _requiresFlutterIcon(Object? icon) {
-    if (icon is ImageIcon) return _requiresFlutterIcon(icon.image);
-    if (icon is Widget) return true;
-    return icon is ImageProvider &&
-        icon is! AssetImage &&
-        icon is! FileImage &&
-        icon is! NetworkImage;
-  }
-
-  /// Builds an avatar for providers, or preserves a supplied image widget.
+  /// Images and widgets render as supplied. Item colors affect ordinary icons.
   Widget buildIcon({
     bool selected = false,
     Color? color,
     TargetPlatform platform = TargetPlatform.iOS,
   }) {
     final value = selected ? selectedIcon ?? icon : icon;
-    final child = _buildIcon(selected: selected, platform: platform);
-    if (!_isImage(value)) {
+    if (value is Icon) {
       return color == null
-          ? child
+          ? value
           : IconTheme.merge(
               data: IconThemeData(color: color),
-              child: child,
+              child: value,
             );
     }
-    if (!applyImageTint) return child;
-    return Builder(
-      builder: (context) {
-        final tint = color ?? IconTheme.of(context).color;
-        return tint == null
-            ? child
-            : ColorFiltered(
-                colorFilter: ColorFilter.mode(tint, BlendMode.srcIn),
-                child: child,
-              );
-      },
-    );
-  }
-
-  Widget _buildIcon({bool selected = false, required TargetPlatform platform}) {
-    final value = selected ? selectedIcon ?? icon : icon;
-    final provider = value is ImageIcon ? value.image : value;
-    if (provider is ImageProvider) {
-      return NavigationImageIcon(
-        image: provider,
-        placeholder: iconPlaceholder,
-        errorWidget: iconErrorWidget,
-      );
-    }
     if (value is Widget) return value;
-    if (value is IconData) return Icon(value);
+    if (value is ImageProvider) return AdaptiveNavigationImage(image: value);
+    if (value is IconData) return Icon(value, color: color);
     if (value is String) {
       return Icon(
         platform == TargetPlatform.iOS
             ? _sfSymbolToCupertinoIcon(value)
             : Icons.circle,
+        color: color,
       );
     }
     return const Icon(CupertinoIcons.circle);
