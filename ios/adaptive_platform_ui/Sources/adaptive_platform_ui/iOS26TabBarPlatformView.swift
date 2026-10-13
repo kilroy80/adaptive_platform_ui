@@ -25,9 +25,6 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     private var tabBar: UITabBar?
     private var minimizeBehavior: Int = 3 // automatic
     private var currentLabels: [String] = []
-#if DEBUG
-    private var labelDebugScheduled = false
-#endif
     private var currentTextColors: [UIColor?] = []
     private var currentSelectedTextColors: [UIColor?] = []
     private var currentSymbols: [String] = []
@@ -918,67 +915,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         }
         bar.standardAppearance = standard
         bar.scrollEdgeAppearance = scrollEdge
-#if DEBUG
-        scheduleLabelAppearanceDebug()
-#endif
     }
-
-#if DEBUG
-    // Read-only diagnostics: no private selectors or subview styling.
-    private func scheduleLabelAppearanceDebug() {
-        guard !labelDebugScheduled else { return }
-        labelDebugScheduled = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            guard let self = self else { return }
-            self.labelDebugScheduled = false
-            guard let bar = self.tabBar, bar.window != nil else { return }
-            bar.layoutIfNeeded()
-            var views: [UIView] = [bar]
-            var labels: [[String: Any]] = []
-            while let view = views.popLast() {
-                views.append(contentsOf: view.subviews)
-                guard let label = view as? UILabel else { continue }
-                let attributedColor = label.attributedText.flatMap { text -> UIColor? in
-                    guard text.length > 0 else { return nil }
-                    return text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-                }
-                labels.append([
-                    "text": label.text ?? label.attributedText?.string ?? "",
-                    "textColor": self.debugLabelColor(label.textColor, traits: bar.traitCollection),
-                    "attributedColor": self.debugLabelColor(attributedColor, traits: bar.traitCollection),
-                    "hidden": label.isHidden,
-                    "alpha": label.alpha,
-                    "frame": NSCoder.string(for: label.convert(label.bounds, to: bar))
-                ])
-            }
-            let selectedIndex = bar.selectedItem.flatMap { bar.items?.firstIndex(of: $0) } ?? -1
-            let diagnostics: [String: Any] = [
-                "systemVersion": UIDevice.current.systemVersion,
-                "selectedIndex": selectedIndex,
-                "expectedNormal": self.currentTextColors.map { self.debugLabelColor($0, traits: bar.traitCollection) },
-                "expectedSelected": self.currentSelectedTextColors.map { self.debugLabelColor($0, traits: bar.traitCollection) },
-                "standardNormal": self.debugLabelColor(bar.standardAppearance.stackedLayoutAppearance.normal.titleTextAttributes[.foregroundColor] as? UIColor, traits: bar.traitCollection),
-                "standardSelected": self.debugLabelColor(bar.standardAppearance.stackedLayoutAppearance.selected.titleTextAttributes[.foregroundColor] as? UIColor, traits: bar.traitCollection),
-                "renderedLabels": labels
-            ]
-            self.channel.invokeMethod("labelAppearanceDebug", arguments: diagnostics)
-        }
-    }
-
-    private func debugLabelColor(_ color: UIColor?, traits: UITraitCollection) -> String {
-        guard let color = color else { return "default" }
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        let resolved = color.resolvedColor(with: traits)
-        guard resolved.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
-            return resolved.description
-        }
-        return String(format: "#%02X%02X%02X%02X", Int((alpha * 255).rounded()),
-                      Int((red * 255).rounded()), Int((green * 255).rounded()), Int((blue * 255).rounded()))
-    }
-#endif
 
     private func applyLabelTint(to item: UITabBarItem, index: Int) {
         let normal = index < currentTextColors.count ? currentTextColors[index] : nil

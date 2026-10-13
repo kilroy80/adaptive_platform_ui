@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -320,32 +319,30 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
               ? destination.selectedIcon ?? destination.icon
               : destination.icon;
           final size = icon is AdaptiveNavigationImage ? icon.size : 26.0;
-          snapshots.add(
-            Positioned(
-              left: 0,
-              top: 0,
-              width: size,
-              height: size,
-              child: NativeIconSnapshot(
-                key: ValueKey((i, selected)),
-                onPixels: (pixels) {
-                  if (!mounted || revision != _iconRevision) return;
-                  final cached = _iconPixels[(i, selected)];
-                  if (cached != null &&
-                      cached.width == pixels.width &&
-                      cached.height == pixels.height &&
-                      cached.scale == pixels.scale &&
-                      listEquals(cached.rgba, pixels.rgba)) {
-                    return;
-                  }
-                  _iconPixels[(i, selected)] = pixels;
-                  _dirtyIconPixels.add((i, selected));
-                  _queueIconPixels();
-                },
-                child: destination.buildIcon(selected: selected),
-              ),
+          snapshots.add(Positioned(
+            left: 0,
+            top: 0,
+            width: size,
+            height: size,
+            child: NativeIconSnapshot(
+              key: ValueKey((i, selected)),
+              onPixels: (pixels) {
+                if (!mounted || revision != _iconRevision) return;
+                final cached = _iconPixels[(i, selected)];
+                if (cached != null &&
+                    cached.width == pixels.width &&
+                    cached.height == pixels.height &&
+                    cached.scale == pixels.scale &&
+                    listEquals(cached.rgba, pixels.rgba)) {
+                  return;
+                }
+                _iconPixels[(i, selected)] = pixels;
+                _dirtyIconPixels.add((i, selected));
+                _queueIconPixels();
+              },
+              child: destination.buildIcon(selected: selected),
             ),
-          );
+          ));
         }
       }
     }
@@ -507,11 +504,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   }
 
   Future<dynamic> _onMethodCall(MethodCall call) async {
-    if (kDebugMode && call.method == 'labelAppearanceDebug') {
-      debugPrint(
-        '[adaptive_platform_ui] Liquid Glass labels: ${jsonEncode(call.arguments)}',
-      );
-    } else if (call.method == 'valueChanged') {
+    if (call.method == 'valueChanged') {
       final args = call.arguments as Map?;
       final idx = (args?['index'] as num?)?.toInt();
       if (idx != null) {
