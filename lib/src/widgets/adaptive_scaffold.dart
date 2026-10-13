@@ -21,6 +21,7 @@ class AdaptiveNavigationDestination {
     this.selectedIcon,
     this.iconPlaceholder,
     this.iconErrorWidget,
+    this.applyImageTint = false,
     this.isSearch = false,
     this.badgeCount,
     this.badgeText,
@@ -57,6 +58,14 @@ class AdaptiveNavigationDestination {
   /// Defaults to a person avatar icon.
   final Widget? iconErrorWidget;
 
+  /// Apply navigation item colors to image providers and custom image widgets.
+  /// Defaults to false to preserve original colors. Does not affect Icon/IconData
+  /// or SF Symbols. Applies to both normal and selected images.
+  final bool applyImageTint;
+
+  bool _isImage(Object? value) =>
+      value is ImageProvider || (value is Widget && value is! Icon);
+
   /// Whether either icon needs Flutter rendering before being sent to UIKit.
   bool get requiresFlutterIcon =>
       requiresFlutterIconFor(false) || requiresFlutterIconFor(true);
@@ -66,7 +75,12 @@ class AdaptiveNavigationDestination {
   bool requiresFlutterIconFor(bool selected) {
     final value = selected ? selectedIcon ?? icon : icon;
     final isImage = value is ImageProvider || value is ImageIcon;
-    return (isImage && (iconPlaceholder != null || iconErrorWidget != null)) ||
+    return (isImage &&
+            (applyImageTint ||
+                value is AssetImage ||
+                value is ImageIcon ||
+                iconPlaceholder != null ||
+                iconErrorWidget != null)) ||
         _requiresFlutterIcon(value);
   }
 
@@ -80,7 +94,36 @@ class AdaptiveNavigationDestination {
   }
 
   /// Builds an avatar for providers, or preserves a supplied image widget.
-  Widget buildIcon({bool selected = false}) {
+  Widget buildIcon({
+    bool selected = false,
+    Color? color,
+    TargetPlatform platform = TargetPlatform.iOS,
+  }) {
+    final value = selected ? selectedIcon ?? icon : icon;
+    final child = _buildIcon(selected: selected, platform: platform);
+    if (!_isImage(value)) {
+      return color == null
+          ? child
+          : IconTheme.merge(
+              data: IconThemeData(color: color),
+              child: child,
+            );
+    }
+    if (!applyImageTint) return child;
+    return Builder(
+      builder: (context) {
+        final tint = color ?? IconTheme.of(context).color;
+        return tint == null
+            ? child
+            : ColorFiltered(
+                colorFilter: ColorFilter.mode(tint, BlendMode.srcIn),
+                child: child,
+              );
+      },
+    );
+  }
+
+  Widget _buildIcon({bool selected = false, required TargetPlatform platform}) {
     final value = selected ? selectedIcon ?? icon : icon;
     final provider = value is ImageIcon ? value.image : value;
     if (provider is ImageProvider) {
@@ -92,7 +135,13 @@ class AdaptiveNavigationDestination {
     }
     if (value is Widget) return value;
     if (value is IconData) return Icon(value);
-    if (value is String) return Icon(_sfSymbolToCupertinoIcon(value));
+    if (value is String) {
+      return Icon(
+        platform == TargetPlatform.iOS
+            ? _sfSymbolToCupertinoIcon(value)
+            : Icons.circle,
+      );
+    }
     return const Icon(CupertinoIcons.circle);
   }
 
@@ -665,27 +714,18 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
           }
           // Priority 2: Build from items
           else {
-            final unselectedColor =
-                widget.bottomNavigationBar!.unselectedItemColor;
-
             tabBar = CupertinoTabBar(
               currentIndex: widget.bottomNavigationBar!.selectedIndex!,
               onTap: widget.bottomNavigationBar!.onTap!,
               activeColor: widget.bottomNavigationBar!.selectedItemColor,
               items: widget.bottomNavigationBar!.items!.map((dest) {
-                Widget iconWidget = _buildNavigationIconWidget(
-                  rawIcon: dest.icon,
-                  placeholder: dest.iconPlaceholder,
-                  errorWidget: dest.iconErrorWidget,
-                  color: unselectedColor,
-                  platform: TargetPlatform.iOS,
+                Widget iconWidget = dest.buildIcon(
+                  color: widget.bottomNavigationBar!.unselectedItemColor,
                 );
 
-                Widget activeIconWidget = _buildNavigationIconWidget(
-                  rawIcon: dest.selectedIcon ?? dest.icon,
-                  placeholder: dest.iconPlaceholder,
-                  errorWidget: dest.iconErrorWidget,
-                  platform: TargetPlatform.iOS,
+                Widget activeIconWidget = dest.buildIcon(
+                  selected: true,
+                  color: widget.bottomNavigationBar!.selectedItemColor,
                 );
 
                 if (dest.hasBadge) {
@@ -951,18 +991,15 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
           onDestinationSelected: widget.bottomNavigationBar!.onTap!,
           indicatorColor: widget.bottomNavigationBar!.selectedItemColor,
           destinations: widget.bottomNavigationBar!.items!.map((dest) {
-            Widget iconWidget = _buildNavigationIconWidget(
-              rawIcon: dest.icon,
-              placeholder: dest.iconPlaceholder,
-              errorWidget: dest.iconErrorWidget,
+            Widget iconWidget = dest.buildIcon(
               platform: TargetPlatform.android,
+              color: widget.bottomNavigationBar!.unselectedItemColor,
             );
 
-            Widget selectedIconWidget = _buildNavigationIconWidget(
-              rawIcon: dest.selectedIcon ?? dest.icon,
-              placeholder: dest.iconPlaceholder,
-              errorWidget: dest.iconErrorWidget,
+            Widget selectedIconWidget = dest.buildIcon(
               platform: TargetPlatform.android,
+              selected: true,
+              color: widget.bottomNavigationBar!.selectedItemColor,
             );
 
             if (dest.hasBadge) {
@@ -1063,48 +1100,6 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
       drawerEnableOpenDragGesture: widget.drawerEnableOpenDragGesture,
       endDrawerEnableOpenDragGesture: widget.endDrawerEnableOpenDragGesture,
     );
-  }
-
-  Widget _buildNavigationIconWidget({
-    required dynamic rawIcon,
-    Color? color,
-    Widget? placeholder,
-    Widget? errorWidget,
-    required TargetPlatform platform,
-  }) {
-    if (rawIcon is ImageIcon &&
-        rawIcon.image != null &&
-        (placeholder != null || errorWidget != null)) {
-      return NavigationImageIcon(
-        image: rawIcon.image!,
-        placeholder: placeholder,
-        errorWidget: errorWidget,
-      );
-    }
-    if (rawIcon is Widget) {
-      return color != null && rawIcon is ImageIcon
-          ? ImageIcon(rawIcon.image, color: color)
-          : rawIcon;
-    }
-
-    if (rawIcon is ImageProvider) {
-      return NavigationImageIcon(
-        image: rawIcon,
-        placeholder: placeholder,
-        errorWidget: errorWidget,
-      );
-    }
-
-    final IconData iconData;
-    if (rawIcon is String) {
-      iconData = platform == TargetPlatform.iOS
-          ? AdaptiveNavigationDestination._sfSymbolToCupertinoIcon(rawIcon)
-          : Icons.circle;
-    } else {
-      iconData = rawIcon as IconData;
-    }
-
-    return color != null ? Icon(iconData, color: color) : Icon(iconData);
   }
 }
 

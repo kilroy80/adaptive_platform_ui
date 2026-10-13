@@ -213,7 +213,8 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
       if (a[i].icon != b[i].icon ||
           a[i].selectedIcon != b[i].selectedIcon ||
           a[i].iconPlaceholder != b[i].iconPlaceholder ||
-          a[i].iconErrorWidget != b[i].iconErrorWidget) {
+          a[i].iconErrorWidget != b[i].iconErrorWidget ||
+          a[i].applyImageTint != b[i].applyImageTint) {
         return false;
       }
     }
@@ -221,6 +222,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   }
 
   bool _sharesDestinationIcon(AdaptiveNavigationDestination d) =>
+      !d.applyImageTint &&
       d.requiresFlutterIconFor(false) &&
       d.requiresFlutterIconFor(true) &&
       (d.selectedIcon == null || d.selectedIcon == d.icon);
@@ -326,7 +328,15 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
                       _dirtyIconPixels.add((i, selected));
                       _queueIconPixels();
                     },
-                    child: widget.destinations[i].buildIcon(selected: selected),
+                    child: widget.destinations[i].buildIcon(
+                      selected: selected,
+                      color: widget.destinations[i].applyImageTint
+                          ? (selected
+                                ? _effectiveTint
+                                : widget.unselectedItemTint ??
+                                      CupertinoColors.inactiveGray)
+                          : null,
+                    ),
                   ),
                 ),
       ],
@@ -453,10 +463,14 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
       items: [
         for (final d in widget.destinations)
           BottomNavigationBarItem(
-            icon: d.hasBadge ? d.wrapWithBadge(d.buildIcon()) : d.buildIcon(),
+            icon: d.hasBadge
+                ? d.wrapWithBadge(d.buildIcon(color: widget.unselectedItemTint))
+                : d.buildIcon(color: widget.unselectedItemTint),
             activeIcon: d.hasBadge
-                ? d.wrapWithBadge(d.buildIcon(selected: true))
-                : d.buildIcon(selected: true),
+                ? d.wrapWithBadge(
+                    d.buildIcon(selected: true, color: _effectiveTint),
+                  )
+                : d.buildIcon(selected: true, color: _effectiveTint),
             label: d.label,
           ),
       ],
