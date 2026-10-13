@@ -40,11 +40,17 @@ Images keep their original pixels. Ordinary `Icon`/`IconData`/SF Symbols keep
 their normal icon behavior. Flutter's `ImageIcon` is itself a tintable widget;
 use `Image` or `AdaptiveNavigationImage` for full-color pictures.
 
-Set `textColor` and `selectedTextColor` on a destination to control its normal
-and selected label colors directly. Unset values fall back to the bottom bar's
-`unselectedItemColor` and `selectedItemColor`, respectively, then platform/theme
-defaults. Existing font sizes and weights are preserved. `applyTextTint` was
-removed; label colors are independent of images and ordinary icon colors.
+Set `selectedTextColor` on `AdaptiveBottomNavigationBar` to control the common
+selected label color. It falls back to `selectedItemColor`, then platform/theme
+defaults.
+
+`unselectedTextColor` is an Android label color option. It falls back to
+`unselectedItemColor`, then platform/theme defaults. Native iOS 26+ Liquid Glass
+does not honor this option: unselected labels use system-controlled colors
+(black in light mode, white in dark mode). `selectedTextColor` still applies.
+
+Existing font sizes and weights are preserved. `applyTextTint` was removed;
+label colors are independent of images and ordinary icon colors.
 
 Migration: `applyImageTint`, `iconPlaceholder`, and `iconErrorWidget` were removed
 from `AdaptiveNavigationDestination`. Move placeholders/errors into the image
@@ -112,7 +118,7 @@ benchmarks are not covered by these tests.
 
 ## Upstream scope
 
-The public destination API adds `textColor` and `selectedTextColor` relative to upstream;
+Common text colors are configured on `AdaptiveBottomNavigationBar`;
 images use the existing `icon` and `selectedIcon` widget slots. The public image
 widget reuses the previous image renderer rather than introducing a second
 loading/cache implementation. The native snapshot bridge remains necessary to

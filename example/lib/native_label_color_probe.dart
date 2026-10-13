@@ -18,14 +18,11 @@ class NativeLabelColorProbe extends StatefulWidget {
 class _NativeLabelColorProbeState extends State<NativeLabelColorProbe> {
   int _selectedIndex = 0;
   bool _alternateColors = false;
-  bool _useBarDefaults = false;
 
   @override
   Widget build(BuildContext context) {
-    final firstNormal = _alternateColors ? Colors.orange : Colors.red;
-    final firstSelected = _alternateColors ? Colors.purple : Colors.blue;
-    final secondNormal = _alternateColors ? Colors.red : Colors.orange;
-    final secondSelected = _alternateColors ? Colors.blue : Colors.purple;
+    final normalColor = _alternateColors ? Colors.orange : Colors.grey;
+    final selectedColor = _alternateColors ? Colors.purple : Colors.green;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Native Liquid Glass label probe')),
@@ -34,37 +31,26 @@ class _NativeLabelColorProbeState extends State<NativeLabelColorProbe> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text('Use an iOS 26+ device to inspect native labels.'),
-            const Text('Icons: selected green, unselected grey.'),
+            const Text(
+              'Icons keep their own colors; labels use common text colors.',
+            ),
             Text(
               'First',
               style: TextStyle(
-                color: _useBarDefaults
-                    ? (_selectedIndex == 0 ? Colors.green : Colors.grey)
-                    : (_selectedIndex == 0 ? firstSelected : firstNormal),
+                color: _selectedIndex == 0 ? selectedColor : normalColor,
               ),
             ),
             Text(
               'Second',
               style: TextStyle(
-                color: _useBarDefaults
-                    ? (_selectedIndex == 1 ? Colors.green : Colors.grey)
-                    : (_selectedIndex == 1 ? secondSelected : secondNormal),
+                color: _selectedIndex == 1 ? selectedColor : normalColor,
               ),
             ),
             const Text('The labels below should match these reference colors.'),
             CupertinoButton(
               onPressed: () =>
                   setState(() => _alternateColors = !_alternateColors),
-              child: const Text('Change explicit label colors'),
-            ),
-            CupertinoButton(
-              onPressed: () =>
-                  setState(() => _useBarDefaults = !_useBarDefaults),
-              child: Text(
-                _useBarDefaults
-                    ? 'Use explicit label colors'
-                    : 'Use bar defaults',
-              ),
+              child: const Text('Change common tab colors'),
             ),
           ],
         ),
@@ -72,21 +58,13 @@ class _NativeLabelColorProbeState extends State<NativeLabelColorProbe> {
       bottomNavigationBar: IOS26NativeTabBar(
         tint: Colors.green,
         unselectedItemTint: Colors.grey,
+        selectedTextColor: selectedColor,
+        unselectedTextColor: normalColor,
         selectedIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         destinations: [
-          AdaptiveNavigationDestination(
-            icon: 'house',
-            label: 'First',
-            textColor: _useBarDefaults ? null : firstNormal,
-            selectedTextColor: _useBarDefaults ? null : firstSelected,
-          ),
-          AdaptiveNavigationDestination(
-            icon: 'person',
-            label: 'Second',
-            textColor: _useBarDefaults ? null : secondNormal,
-            selectedTextColor: _useBarDefaults ? null : secondSelected,
-          ),
+          AdaptiveNavigationDestination(icon: 'house', label: 'First'),
+          AdaptiveNavigationDestination(icon: 'person', label: 'Second'),
         ],
       ),
     );

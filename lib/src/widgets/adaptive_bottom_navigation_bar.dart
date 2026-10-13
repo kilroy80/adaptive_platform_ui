@@ -25,6 +25,8 @@ class AdaptiveBottomNavigationBar {
     this.bottomNavigationBar,
     this.selectedItemColor,
     this.unselectedItemColor,
+    this.selectedTextColor,
+    this.unselectedTextColor,
   });
 
   /// Navigation items for bottom navigation bar
@@ -78,7 +80,7 @@ class AdaptiveBottomNavigationBar {
   ///   indicator uses NavigationBarThemeData.indicatorColor or the Material default.
   ///
   /// Image pixels keep their original colors. Labels use this color unless
-  /// the destination specifies its own text color.
+  /// a separate text color is specified on this bar.
   /// If null, uses platform defaults.
   final Color? selectedItemColor;
 
@@ -89,9 +91,20 @@ class AdaptiveBottomNavigationBar {
   /// - Android (NavigationBar): Sets unselected icon and label colors
   ///
   /// Image pixels keep their original colors. Labels use this color unless
-  /// the destination specifies its own text color.
+  /// a separate text color is specified on this bar.
   /// If null, uses platform defaults.
   final Color? unselectedItemColor;
+
+  /// Common selected label color. Falls back to [selectedItemColor].
+  final Color? selectedTextColor;
+
+  /// Common unselected label color for Android.
+  ///
+  /// Falls back to [unselectedItemColor], then the platform/theme default.
+  /// Native iOS 26+ Liquid Glass ignores this color and uses system-controlled
+  /// unselected label colors (black in light mode, white in dark mode).
+  /// Does not affect icon colors or caller-provided custom navigation bars.
+  final Color? unselectedTextColor;
 
   /// Creates a copy of this bottom navigation bar with the given fields replaced
   AdaptiveBottomNavigationBar copyWith({
@@ -103,6 +116,8 @@ class AdaptiveBottomNavigationBar {
     Widget? bottomNavigationBar,
     Color? selectedItemColor,
     Color? unselectedItemColor,
+    Color? selectedTextColor,
+    Color? unselectedTextColor,
   }) {
     return AdaptiveBottomNavigationBar(
       items: items ?? this.items,
@@ -113,6 +128,8 @@ class AdaptiveBottomNavigationBar {
       bottomNavigationBar: bottomNavigationBar ?? this.bottomNavigationBar,
       selectedItemColor: selectedItemColor ?? this.selectedItemColor,
       unselectedItemColor: unselectedItemColor ?? this.unselectedItemColor,
+      selectedTextColor: selectedTextColor ?? this.selectedTextColor,
+      unselectedTextColor: unselectedTextColor ?? this.unselectedTextColor,
     );
   }
 }

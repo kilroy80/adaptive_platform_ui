@@ -16,6 +16,8 @@ class IOS26NativeTabBar extends StatefulWidget {
     required this.onTap,
     this.tint,
     this.unselectedItemTint,
+    this.selectedTextColor,
+    this.unselectedTextColor,
     this.backgroundColor,
     this.height,
     this.minimizeBehavior = TabBarMinimizeBehavior.automatic,
@@ -28,6 +30,8 @@ class IOS26NativeTabBar extends StatefulWidget {
   final ValueChanged<int> onTap;
   final Color? tint;
   final Color? unselectedItemTint;
+  final Color? selectedTextColor;
+  final Color? unselectedTextColor;
   final Color? backgroundColor;
   final double? height;
   final bool showNativeView;
@@ -56,6 +60,8 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   int? _nativeIconRevision;
 
   int? _lastIndex;
+  int? _lastSelectedTextColor;
+  int? _lastUnselectedTextColor;
   int? _lastTint;
   int? _lastUnselectedTint;
   int? _lastBg;
@@ -63,8 +69,6 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   bool? _lastIsRtl;
   double? _intrinsicHeight;
   List<String>? _lastLabels;
-  List<int?>? _lastTextColors;
-  List<int?>? _lastSelectedTextColors;
   List<String>? _lastSymbols;
   List<String>? _lastSelectedSymbols;
   List<String>? _lastAssetIcons;
@@ -81,7 +85,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   bool? _lastHidden;
 
   bool get _isDark =>
-      MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+      CupertinoTheme.brightnessOf(context) == Brightness.dark;
   bool get _isRtl => Directionality.of(context) == TextDirection.rtl;
   Color? get _effectiveTint =>
       widget.tint ?? CupertinoTheme.of(context).primaryColor;
@@ -141,7 +145,7 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
     Color resolvedColor = color;
     if (color is CupertinoDynamicColor) {
       // Resolve based on current brightness
-      final brightness = MediaQuery.platformBrightnessOf(context);
+      final brightness = CupertinoTheme.brightnessOf(context);
       resolvedColor = brightness == Brightness.dark
           ? color.darkColor
           : color.color;
@@ -187,16 +191,6 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
                 : extract(selected ? d.selectedIcon ?? d.icon : d.icon),
           )
           .toList();
-
-  List<int?> _mapTextColors() => widget.destinations.map((d) {
-    final color = d.textColor ?? widget.unselectedItemTint;
-    return color == null ? null : _colorToARGB(color);
-  }).toList();
-
-  List<int?> _mapSelectedTextColors() => widget.destinations.map((d) {
-    final color = d.selectedTextColor ?? _effectiveTint;
-    return color == null ? null : _colorToARGB(color);
-  }).toList();
 
   List<String> _mapSymbols() => _mapIcons(_extractSymbol, false);
   List<String> _mapSelectedSymbols() => _mapIcons(_extractSymbol, true);
@@ -319,30 +313,32 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
               ? destination.selectedIcon ?? destination.icon
               : destination.icon;
           final size = icon is AdaptiveNavigationImage ? icon.size : 26.0;
-          snapshots.add(Positioned(
-            left: 0,
-            top: 0,
-            width: size,
-            height: size,
-            child: NativeIconSnapshot(
-              key: ValueKey((i, selected)),
-              onPixels: (pixels) {
-                if (!mounted || revision != _iconRevision) return;
-                final cached = _iconPixels[(i, selected)];
-                if (cached != null &&
-                    cached.width == pixels.width &&
-                    cached.height == pixels.height &&
-                    cached.scale == pixels.scale &&
-                    listEquals(cached.rgba, pixels.rgba)) {
-                  return;
-                }
-                _iconPixels[(i, selected)] = pixels;
-                _dirtyIconPixels.add((i, selected));
-                _queueIconPixels();
-              },
-              child: destination.buildIcon(selected: selected),
+          snapshots.add(
+            Positioned(
+              left: 0,
+              top: 0,
+              width: size,
+              height: size,
+              child: NativeIconSnapshot(
+                key: ValueKey((i, selected)),
+                onPixels: (pixels) {
+                  if (!mounted || revision != _iconRevision) return;
+                  final cached = _iconPixels[(i, selected)];
+                  if (cached != null &&
+                      cached.width == pixels.width &&
+                      cached.height == pixels.height &&
+                      cached.scale == pixels.scale &&
+                      listEquals(cached.rgba, pixels.rgba)) {
+                    return;
+                  }
+                  _iconPixels[(i, selected)] = pixels;
+                  _dirtyIconPixels.add((i, selected));
+                  _queueIconPixels();
+                },
+                child: destination.buildIcon(selected: selected),
+              ),
             ),
-          ));
+          );
         }
       }
     }
@@ -390,9 +386,13 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
       final creationParams = <String, dynamic>{
         'iconRevision': _iconRevision,
         'flutterIconStates': _flutterIconStates,
+        'selectedTextColor': widget.selectedTextColor == null
+            ? null
+            : _colorToARGB(widget.selectedTextColor!),
+        'unselectedTextColor': widget.unselectedTextColor == null
+            ? null
+            : _colorToARGB(widget.unselectedTextColor!),
         'labels': labels,
-        'textColors': _mapTextColors(),
-        'selectedTextColors': _mapSelectedTextColors(),
         'sfSymbols': symbols,
         'selectedSfSymbols': selectedSymbols,
         'assetIcons': assetIcons,
@@ -473,6 +473,8 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
           d.buildCupertinoItem(
             context,
             selectedColor: _effectiveTint,
+            selectedTextColor: widget.selectedTextColor,
+            unselectedTextColor: widget.unselectedTextColor,
             unselectedColor: widget.unselectedItemTint,
           ),
       ],
@@ -534,6 +536,21 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
     }
 
     final style = <String, dynamic>{};
+    final selectedTextColor = widget.selectedTextColor == null
+        ? null
+        : _colorToARGB(widget.selectedTextColor!);
+    final unselectedTextColor = widget.unselectedTextColor == null
+        ? null
+        : _colorToARGB(widget.unselectedTextColor!);
+    if (_lastSelectedTextColor != selectedTextColor) {
+      style['selectedTextColor'] = selectedTextColor;
+      _lastSelectedTextColor = selectedTextColor;
+    }
+    if (_lastUnselectedTextColor != unselectedTextColor) {
+      style['unselectedTextColor'] = unselectedTextColor;
+      _lastUnselectedTextColor = unselectedTextColor;
+    }
+
     if (_lastTint != tint && tint != null) {
       style['tint'] = tint;
       _lastTint = tint;
@@ -552,8 +569,6 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
 
     // Items update (for hot reload or dynamic changes)
     final labels = widget.destinations.map((e) => e.label).toList();
-    final textColors = _mapTextColors();
-    final selectedTextColors = _mapSelectedTextColors();
     final symbols = _mapSymbols();
     final selectedSymbols = _mapSelectedSymbols();
     final assetIcons = _mapAssetIcons();
@@ -567,8 +582,6 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
 
     if (_lastIconRevision != _iconRevision ||
         _lastLabels?.join('|') != labels.join('|') ||
-        !listEquals(_lastTextColors, textColors) ||
-        !listEquals(_lastSelectedTextColors, selectedTextColors) ||
         _lastSymbols?.join('|') != symbols.join('|') ||
         _lastSelectedSymbols?.join('|') != selectedSymbols.join('|') ||
         _lastAssetIcons?.join('|') != assetIcons.join('|') ||
@@ -583,8 +596,6 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         'iconRevision': revision,
         'flutterIconStates': _flutterIconStates,
         'labels': labels,
-        'textColors': textColors,
-        'selectedTextColors': selectedTextColors,
         'sfSymbols': symbols,
         'selectedSfSymbols': selectedSymbols,
         'assetIcons': assetIcons,
@@ -606,8 +617,6 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         _queueIconPixels();
       }
       _lastLabels = labels;
-      _lastTextColors = textColors;
-      _lastSelectedTextColors = selectedTextColors;
       _lastSymbols = symbols;
       _lastSelectedSymbols = selectedSymbols;
       _lastAssetIcons = assetIcons;
@@ -677,8 +686,6 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
   void _cacheItems() {
     _lastIconRevision = _iconRevision;
     _lastLabels = widget.destinations.map((e) => e.label).toList();
-    _lastTextColors = _mapTextColors();
-    _lastSelectedTextColors = _mapSelectedTextColors();
     _lastSymbols = _mapSymbols();
     _lastSelectedSymbols = _mapSelectedSymbols();
     _lastAssetIcons = _mapAssetIcons();
@@ -718,8 +725,6 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
 
   Future<void> _pushInitialStateToNative(MethodChannel ch) async {
     final labels = widget.destinations.map((e) => e.label).toList();
-    final textColors = _mapTextColors();
-    final selectedTextColors = _mapSelectedTextColors();
     final symbols = _mapSymbols();
     final selectedSymbols = _mapSelectedSymbols();
     final assetIcons = _mapAssetIcons();
@@ -737,8 +742,6 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         'iconRevision': revision,
         'flutterIconStates': _flutterIconStates,
         'labels': labels,
-        'textColors': textColors,
-        'selectedTextColors': selectedTextColors,
         'sfSymbols': symbols,
         'selectedSfSymbols': selectedSymbols,
         'assetIcons': assetIcons,
@@ -761,6 +764,21 @@ class _IOS26NativeTabBarState extends State<IOS26NativeTabBar> {
         _queueIconPixels();
       }
       final style = <String, dynamic>{};
+      final selectedTextColor = widget.selectedTextColor == null
+          ? null
+          : _colorToARGB(widget.selectedTextColor!);
+      final unselectedTextColor = widget.unselectedTextColor == null
+          ? null
+          : _colorToARGB(widget.unselectedTextColor!);
+      if (_lastSelectedTextColor != selectedTextColor) {
+        style['selectedTextColor'] = selectedTextColor;
+        _lastSelectedTextColor = selectedTextColor;
+      }
+      if (_lastUnselectedTextColor != unselectedTextColor) {
+        style['unselectedTextColor'] = unselectedTextColor;
+        _lastUnselectedTextColor = unselectedTextColor;
+      }
+
       if (_effectiveTint != null) {
         style['tint'] = _colorToARGB(_effectiveTint!);
       }

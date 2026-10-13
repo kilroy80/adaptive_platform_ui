@@ -216,8 +216,6 @@ void main() {
       expect(find.byType(UiKitView), findsOneWidget);
       expect(find.byType(CupertinoTabBar), findsNothing);
       expect(params!['searchFlags'], [false, true]);
-      expect(params!['textColors'], [null, null]);
-      expect(params!['selectedTextColors'], hasLength(2));
       expect(params!['badgeTexts'], ['NEW', null]);
       final images = calls.where((c) => c.method == 'setFlutterIcons').toList();
       expect(images, isNotEmpty);
@@ -448,48 +446,93 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
   }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
-
-  testWidgets('native label colors update without recreating bar', (
+  testWidgets(
+    'common native label colors update and reset without recreating bar',
+    (tester) async {
+      final harness = NativeBarHarness();
+      harness.install();
+      addTearDown(harness.dispose);
+      const destinations = [
+        AdaptiveNavigationDestination(icon: 'house', label: 'Home'),
+        AdaptiveNavigationDestination(icon: 'person', label: 'Profile'),
+      ];
+      await tester.pumpWidget(
+        harness.build(
+          destinations,
+          tint: Colors.red,
+          unselectedItemTint: Colors.blue,
+          selectedTextColor: Colors.green,
+          unselectedTextColor: Colors.orange,
+        ),
+      );
+      await tester.pump();
+      final initial =
+          harness.calls.lastWhere((call) => call.method == 'setStyle').arguments
+              as Map;
+      expect(initial['selectedTextColor'], Colors.green.toARGB32());
+      expect(initial['unselectedTextColor'], Colors.orange.toARGB32());
+      expect(initial['tint'], Colors.red.toARGB32());
+      expect(initial['unselectedItemTint'], Colors.blue.toARGB32());
+      await tester.pumpWidget(
+        harness.build(
+          destinations,
+          tint: Colors.red,
+          unselectedItemTint: Colors.blue,
+        ),
+      );
+      await tester.pump();
+      final reset =
+          harness.calls.lastWhere((call) => call.method == 'setStyle').arguments
+              as Map;
+      expect(reset.containsKey('selectedTextColor'), isTrue);
+      expect(reset['selectedTextColor'], isNull);
+      expect(reset.containsKey('unselectedTextColor'), isTrue);
+      expect(reset['unselectedTextColor'], isNull);
+      expect(harness.creations, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+    variant: TargetPlatformVariant({TargetPlatform.iOS}),
+  );
+  testWidgets('native brightness follows app theme while system stays light', (
     tester,
   ) async {
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     final harness = NativeBarHarness();
     harness.install();
     addTearDown(harness.dispose);
+    const destinations = [
+      AdaptiveNavigationDestination(icon: 'house', label: 'Home'),
+      AdaptiveNavigationDestination(icon: 'person', label: 'Profile'),
+    ];
     await tester.pumpWidget(
-      harness.build(const [
-        AdaptiveNavigationDestination(icon: 'house', label: 'Home'),
-        AdaptiveNavigationDestination(
-          icon: 'person',
-          label: 'Profile',
-          textColor: Colors.green,
-          selectedTextColor: Colors.green,
-        ),
-      ]),
+      harness.build(destinations, themeMode: ThemeMode.light),
     );
-    await tester.pump();
-    final initial =
-        harness.calls.lastWhere((c) => c.method == 'setItems').arguments as Map;
-    expect(initial['textColors'], [null, Colors.green.toARGB32()]);
-    expect((initial['selectedTextColors'] as List)[1], Colors.green.toARGB32());
+    await tester.pumpAndSettle();
     await tester.pumpWidget(
-      harness.build(const [
-        AdaptiveNavigationDestination(
-          icon: 'house',
-          label: 'Home',
-          textColor: Colors.green,
-          selectedTextColor: Colors.green,
-        ),
-        AdaptiveNavigationDestination(icon: 'person', label: 'Profile'),
-      ]),
+      harness.build(destinations, themeMode: ThemeMode.dark),
     );
-    await tester.pump();
-    final updated =
-        harness.calls.lastWhere((c) => c.method == 'setItems').arguments as Map;
-    expect(updated['textColors'], [Colors.green.toARGB32(), null]);
-    expect((updated['selectedTextColors'] as List)[0], Colors.green.toARGB32());
+    await tester.pumpAndSettle();
+    final dark =
+        harness.calls
+                .lastWhere((call) => call.method == 'setBrightness')
+                .arguments
+            as Map;
+    expect(dark['isDark'], isTrue);
+    await tester.pumpWidget(
+      harness.build(destinations, themeMode: ThemeMode.light),
+    );
+    await tester.pumpAndSettle();
+    final light =
+        harness.calls
+                .lastWhere((call) => call.method == 'setBrightness')
+                .arguments
+            as Map;
+    expect(light['isDark'], isFalse);
     expect(harness.creations, 1);
     await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
+    await tester.pumpAndSettle();
   }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 }
 
@@ -544,11 +587,23 @@ class NativeBarHarness {
     List<AdaptiveNavigationDestination> destinations, {
     int selectedIndex = 0,
     bool hidden = false,
+    ThemeMode themeMode = ThemeMode.system,
+    Color? tint,
+    Color? unselectedItemTint,
+    Color? selectedTextColor,
+    Color? unselectedTextColor,
   }) => MaterialApp(
+    theme: ThemeData.light(),
+    darkTheme: ThemeData.dark(),
+    themeMode: themeMode,
     home: Scaffold(
       bottomNavigationBar: IOS26NativeTabBar(
         destinations: destinations,
         hidden: hidden,
+        tint: tint,
+        unselectedItemTint: unselectedItemTint,
+        selectedTextColor: selectedTextColor,
+        unselectedTextColor: unselectedTextColor,
         selectedIndex: selectedIndex,
         onTap: (_) {},
       ),

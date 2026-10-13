@@ -19,8 +19,6 @@ class AdaptiveNavigationDestination {
     required this.icon,
     required this.label,
     this.selectedIcon,
-    this.textColor,
-    this.selectedTextColor,
     this.isSearch = false,
     this.badgeCount,
     this.badgeText,
@@ -49,18 +47,12 @@ class AdaptiveNavigationDestination {
   /// when the destination is selected. Falls back to [icon] when null.
   final dynamic selectedIcon;
 
-  /// Unselected label color. Falls back to the bottom bar's unselectedItemColor,
-  /// then the platform/theme default. Does not affect the icon.
-  final Color? textColor;
-
-  /// Selected label color. Falls back to the bottom bar's selectedItemColor,
-  /// then the platform/theme default. Does not affect the icon.
-  final Color? selectedTextColor;
-
   BottomNavigationBarItem buildCupertinoItem(
     BuildContext context, {
     Color? selectedColor,
     Color? unselectedColor,
+    Color? selectedTextColor,
+    Color? unselectedTextColor,
   }) {
     var normalIcon = buildIcon(color: unselectedColor);
     var activeIcon = buildIcon(selected: true, color: selectedColor);
@@ -68,20 +60,44 @@ class AdaptiveNavigationDestination {
       normalIcon = wrapWithBadge(normalIcon);
       activeIcon = wrapWithBadge(activeIcon);
     }
-    if (textColor == null && selectedTextColor == null) {
-      return BottomNavigationBarItem(icon: normalIcon, activeIcon: activeIcon, label: label);
+    if (selectedTextColor != null || unselectedTextColor != null) {
+      final normalColor =
+          unselectedTextColor ??
+          unselectedColor ??
+          CupertinoColors.inactiveGray;
+      final activeColor =
+          selectedTextColor ??
+          selectedColor ??
+          CupertinoTheme.of(context).primaryColor;
+      return BottomNavigationBarItem(
+        icon: Column(
+          children: [
+            Expanded(child: Center(child: normalIcon)),
+            Text(
+              label,
+              style: TextStyle(
+                color: CupertinoDynamicColor.resolve(normalColor, context),
+              ),
+            ),
+          ],
+        ),
+        activeIcon: Column(
+          children: [
+            Expanded(child: Center(child: activeIcon)),
+            Text(
+              label,
+              style: TextStyle(
+                color: CupertinoDynamicColor.resolve(activeColor, context),
+              ),
+            ),
+          ],
+        ),
+      );
     }
-    final normalLabelColor = textColor ?? unselectedColor ?? CupertinoColors.inactiveGray;
-    final selectedLabelColor = selectedTextColor ?? selectedColor ?? CupertinoTheme.of(context).primaryColor;
     return BottomNavigationBarItem(
-      icon: Column(children: [
-        Expanded(child: Center(child: normalIcon)),
-        Text(label, style: TextStyle(color: CupertinoDynamicColor.resolve(normalLabelColor, context))),
-      ]),
-      activeIcon: Column(children: [
-        Expanded(child: Center(child: activeIcon)),
-        Text(label, style: TextStyle(color: CupertinoDynamicColor.resolve(selectedLabelColor, context))),
-      ]),
+      icon: normalIcon,
+      activeIcon: activeIcon,
+      label: label,
     );
   }
 
@@ -688,6 +704,9 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
             selectedItemColor: widget.bottomNavigationBar!.selectedItemColor,
             unselectedItemColor:
                 widget.bottomNavigationBar!.unselectedItemColor,
+            selectedTextColor: widget.bottomNavigationBar!.selectedTextColor,
+            unselectedTextColor:
+                widget.bottomNavigationBar!.unselectedTextColor,
             hidden: widget.tabBarHidden,
           );
         }
@@ -710,6 +729,10 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
                   .map(
                     (dest) => dest.buildCupertinoItem(
                       context,
+                      selectedTextColor:
+                          widget.bottomNavigationBar!.selectedTextColor,
+                      unselectedTextColor:
+                          widget.bottomNavigationBar!.unselectedTextColor,
                       selectedColor:
                           widget.bottomNavigationBar!.selectedItemColor,
                       unselectedColor:
@@ -991,8 +1014,10 @@ class _AdaptiveScaffoldState extends State<AdaptiveScaffold> {
               label: dest.label,
             );
             final bar = widget.bottomNavigationBar!;
-            final normalTextColor = dest.textColor ?? bar.unselectedItemColor;
-            final activeTextColor = dest.selectedTextColor ?? bar.selectedItemColor;
+            final normalTextColor =
+                bar.unselectedTextColor ?? bar.unselectedItemColor;
+            final activeTextColor =
+                bar.selectedTextColor ?? bar.selectedItemColor;
             if (normalTextColor == null && activeTextColor == null) {
               return destination;
             }
@@ -1122,6 +1147,8 @@ class _MinimizableTabBar extends StatefulWidget {
     required this.enableBlur,
     this.selectedItemColor,
     this.unselectedItemColor,
+    this.selectedTextColor,
+    this.unselectedTextColor,
     this.hidden = false,
   });
 
@@ -1132,6 +1159,8 @@ class _MinimizableTabBar extends StatefulWidget {
   final bool enableBlur;
   final Color? selectedItemColor;
   final Color? unselectedItemColor;
+  final Color? selectedTextColor;
+  final Color? unselectedTextColor;
   final bool hidden;
 
   @override
@@ -1241,6 +1270,8 @@ class _MinimizableTabBarState extends State<_MinimizableTabBar>
         tint:
             widget.selectedItemColor ?? CupertinoTheme.of(context).primaryColor,
         unselectedItemTint: widget.unselectedItemColor,
+        selectedTextColor: widget.selectedTextColor,
+        unselectedTextColor: widget.unselectedTextColor,
         minimizeBehavior: widget.minimizeBehavior,
         hidden: widget.hidden,
       ),

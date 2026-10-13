@@ -25,8 +25,8 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     private var tabBar: UITabBar?
     private var minimizeBehavior: Int = 3 // automatic
     private var currentLabels: [String] = []
-    private var currentTextColors: [UIColor?] = []
-    private var currentSelectedTextColors: [UIColor?] = []
+    private var selectedTextColor: UIColor?
+    private var unselectedTextColor: UIColor?
     private var currentSymbols: [String] = []
     private var currentSelectedSymbols: [String] = []
     private var currentAssetIcons: [String] = []
@@ -110,12 +110,8 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         if let dict = args as? [String: Any] {
             NSLog("📦 TabBar init dict keys: \(dict.keys)")
             labels = (dict["labels"] as? [String]) ?? []
-            currentTextColors = ((dict["textColors"] as? [Any]) ?? []).map {
-                ($0 as? NSNumber).map { Self.colorFromARGB($0.intValue) }
-            }
-            currentSelectedTextColors = ((dict["selectedTextColors"] as? [Any]) ?? []).map {
-                ($0 as? NSNumber).map { Self.colorFromARGB($0.intValue) }
-            }
+            selectedTextColor = (dict["selectedTextColor"] as? NSNumber).map { Self.colorFromARGB($0.intValue) }
+            unselectedTextColor = (dict["unselectedTextColor"] as? NSNumber).map { Self.colorFromARGB($0.intValue) }
             symbols = (dict["sfSymbols"] as? [String]) ?? []
             selectedSymbols = (dict["selectedSfSymbols"] as? [String]) ?? []
             assetIcons = (dict["assetIcons"] as? [String]) ?? []
@@ -162,6 +158,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         // Create single tab bar
         let bar = UITabBar(frame: .zero)
         tabBar = bar
+        bar.overrideUserInterfaceStyle = isDark ? .dark : .light
         bar.delegate = self
         bar.translatesAutoresizingMaskIntoConstraints = false
         let semanticAttribute: UISemanticContentAttribute = isRtl
@@ -508,12 +505,6 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                     index < states.count && states[index].count == 2 && states[index][1]
                 }
             }
-            self.currentTextColors = ((args["textColors"] as? [Any]) ?? []).map {
-                ($0 as? NSNumber).map { Self.colorFromARGB($0.intValue) }
-            }
-            self.currentSelectedTextColors = ((args["selectedTextColors"] as? [Any]) ?? []).map {
-                ($0 as? NSNumber).map { Self.colorFromARGB($0.intValue) }
-            }
             self.currentLabels = labels
             self.currentSymbols = symbols
             self.currentSelectedSymbols = selectedSymbols
@@ -658,6 +649,13 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 return
             }
 
+            if args.keys.contains("selectedTextColor") {
+                selectedTextColor = (args["selectedTextColor"] as? NSNumber).map { Self.colorFromARGB($0.intValue) }
+            }
+            if args.keys.contains("unselectedTextColor") {
+                unselectedTextColor = (args["unselectedTextColor"] as? NSNumber).map { Self.colorFromARGB($0.intValue) }
+            }
+
             var tintColor: UIColor? = nil
             var unselectedColor: UIColor? = nil
 
@@ -697,6 +695,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
             if #available(iOS 13.0, *) {
                 self.container.overrideUserInterfaceStyle = isDark ? .dark : .light
+                self.tabBar?.overrideUserInterfaceStyle = isDark ? .dark : .light
             }
             result(nil)
 
@@ -886,18 +885,9 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         let standard = bar.standardAppearance.copy()
         let scrollEdge = (bar.scrollEdgeAppearance ?? bar.standardAppearance).copy()
 
-        // A shared normal color belongs in the bar appearance. Individual
-        // overrides remain on their UITabBarItem, rather than tinting other tabs.
-        let normalColor: UIColor?
-        if let first = currentTextColors.first ?? nil,
-           currentTextColors.allSatisfy({ $0 == first }) {
-            normalColor = first
-        } else {
-            normalColor = bar.unselectedItemTintColor
-        }
-        let selectedIndex = bar.selectedItem.flatMap { bar.items?.firstIndex(of: $0) } ?? 0
-        let selectedColor = (selectedIndex < currentSelectedTextColors.count
-            ? currentSelectedTextColors[selectedIndex] : nil) ?? bar.tintColor
+        // Liquid Glass uses common label colors independently of icon tint.
+        let normalColor = unselectedTextColor ?? bar.unselectedItemTintColor
+        let selectedColor = selectedTextColor ?? bar.tintColor
 
         // Copy the current appearances and change only foreground colors.
         // Keep UIKit's background effect, fonts, icon colors, and badge styling.
@@ -915,17 +905,23 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         }
         bar.standardAppearance = standard
         bar.scrollEdgeAppearance = scrollEdge
+        // Keep item attributes consistent with the shared normal appearance.
+        if let items = bar.items {
+            for item in items {
+                applyLabelTint(to: item)
+            }
+        }
     }
 
-    private func applyLabelTint(to item: UITabBarItem, index: Int) {
-        let normal = index < currentTextColors.count ? currentTextColors[index] : nil
-        let selected = index < currentSelectedTextColors.count ? currentSelectedTextColors[index] : nil
+    private func applyLabelTint(to item: UITabBarItem) {
+        let normal = unselectedTextColor ?? tabBar?.unselectedItemTintColor
+        let selected = selectedTextColor ?? tabBar?.tintColor
         item.setTitleTextAttributes(normal.map { [.foregroundColor: $0] }, for: .normal)
         item.setTitleTextAttributes(selected.map { [.foregroundColor: $0] }, for: .selected)
     }
 
     private func applyFlutterImages(to item: UITabBarItem, index: Int) {
-        applyLabelTint(to: item, index: index)
+        applyLabelTint(to: item)
         if let image = flutterIcons[index] { item.image = image }
         if let image = selectedFlutterIcons[index] { item.selectedImage = image }
     }

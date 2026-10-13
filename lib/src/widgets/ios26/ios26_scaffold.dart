@@ -474,10 +474,15 @@ class _IOS26ScaffoldState extends State<IOS26Scaffold>
                       destinations: widget.bottomNavigationBar!.items!,
                       selectedIndex: widget.bottomNavigationBar!.selectedIndex!,
                       onTap: widget.bottomNavigationBar!.onTap!,
-                      tint: widget.bottomNavigationBar!.selectedItemColor ??
+                      tint:
+                          widget.bottomNavigationBar!.selectedItemColor ??
                           CupertinoTheme.of(context).primaryColor,
                       unselectedItemTint:
                           widget.bottomNavigationBar!.unselectedItemColor,
+                      selectedTextColor:
+                          widget.bottomNavigationBar!.selectedTextColor,
+                      unselectedTextColor:
+                          widget.bottomNavigationBar!.unselectedTextColor,
                       minimizeBehavior: widget.minimizeBehavior,
                       showNativeView: showNativeView,
                       hidden: widget.tabBarHidden,
@@ -486,10 +491,15 @@ class _IOS26ScaffoldState extends State<IOS26Scaffold>
                       destinations: widget.bottomNavigationBar!.items!,
                       selectedIndex: widget.bottomNavigationBar!.selectedIndex!,
                       onTap: widget.bottomNavigationBar!.onTap!,
-                      tint: widget.bottomNavigationBar!.selectedItemColor ??
+                      tint:
+                          widget.bottomNavigationBar!.selectedItemColor ??
                           CupertinoTheme.of(context).primaryColor,
                       unselectedItemTint:
                           widget.bottomNavigationBar!.unselectedItemColor,
+                      selectedTextColor:
+                          widget.bottomNavigationBar!.selectedTextColor,
+                      unselectedTextColor:
+                          widget.bottomNavigationBar!.unselectedTextColor,
                       minimizeBehavior: widget.minimizeBehavior,
                       showNativeView: showNativeView,
                       hidden: widget.tabBarHidden,
